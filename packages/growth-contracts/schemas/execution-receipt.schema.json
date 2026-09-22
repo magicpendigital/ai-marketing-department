@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Growth Execution Receipt",
+  "type": "object",
+  "required": ["tenantId", "idempotencyKey", "artifactHash", "targetChannel", "status", "occurredAt"],
+  "properties": {
+    "tenantId": { "type": "string" },
+    "idempotencyKey": { "type": "string" },
+    "artifactHash": { "type": "string" },
+    "targetChannel": { "type": "string" },
+    "status": { "enum": ["prepared", "executed", "retracted", "failed"] },
+    "occurredAt": { "type": "string" }
+  }
+}

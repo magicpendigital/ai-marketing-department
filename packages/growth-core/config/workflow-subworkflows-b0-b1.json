@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.1.0",
+  "mode": "draft_only",
+  "subworkflows": [
+    {
+      "workflowId": "W0_readiness",
+      "inputs": ["tenant_config", "brand_pack", "business_pack", "product_truth", "role_mapping", "risk_register", "consent_and_data_map", "event_ownership_map"],
+      "output": "tenant_readiness_record",
+      "allowedStateTransitions": [
+        { "from": "scaffolded_or_incomplete", "to": "ready_for_internal_drafts", "when": "all W0 evidence is current and the owner accepts the record" },
+        { "from": "scaffolded_or_incomplete", "to": "blocked", "when": "an owner, identity boundary, evidence, consent rule, or data-plane control is missing" }
+      ],
+      "failureState": "blocked",
+      "idempotencyRule": "Use the tenant identifier and ProductTruth version to update one readiness record; a material scope change invalidates the prior record.",
+      "stages": [
+        { "id": "W0.1_identity_and_data_boundary", "inputs": ["tenant_config", "business_pack"], "output": "tenant_boundary", "failureState": "blocked", "idempotencyKey": "tenantId:identity_boundary" },
+        { "id": "W0.2_brand_and_product_truth", "inputs": ["brand_pack", "product_truth"], "output": "evidence_bound_claim_registry", "failureState": "blocked", "idempotencyKey": "tenantId:brandPackVersion:productTruth" },
+        { "id": "W0.3_capability_and_destination_map", "inputs": ["business_pack", "role_mapping"], "output": "capability_matrix", "failureState": "blocked", "idempotencyKey": "tenantId:capability_matrix" },
+        { "id": "W0.4_event_ownership", "inputs": ["event_ownership_map", "consent_and_data_map"], "output": "journey_event_map", "failureState": "blocked", "idempotencyKey": "tenantId:metric_definition" },
+        { "id": "W0.5_owner_decision", "inputs": ["tenant_boundary", "evidence_bound_claim_registry", "capability_matrix", "journey_event_map", "risk_register"], "output": "readiness_record", "failureState": "blocked", "idempotencyKey": "tenantId:frameworkVersion:readiness_decision" }
+      ],
+      "humanGate": "owner_accepts_product_truth"
+    },
+    {
+      "workflowId": "W1_research_to_plan",
+      "inputs": ["ready_for_internal_drafts_record", "source_register", "sanitized_research_summary", "product_truth", "event_ownership_map"],
+      "output": "versioned_brief",
+      "allowedStateTransitions": [
+        { "from": "ready_for_internal_drafts", "to": "research_scope_accepted", "when": "the research owner accepts source and data boundaries" },
+        { "from": "research_scope_accepted", "to": "brief_ready_for_internal_drafts", "when": "the hypothesis, claim refs, and metric plan are complete" },
+        { "from": "ready_for_internal_drafts", "to": "blocked", "when": "a source, claim, consent boundary, or metric definition is unresolved" }
+      ],
+      "failureState": "blocked",
+      "idempotencyRule": "Use tenant identifier, research-scope version, and ProductTruth version; updating any source or claim invalidates the prior brief.",
+      "stages": [
+        { "id": "W1.1_source_register", "inputs": ["source_register"], "output": "source_scope", "failureState": "blocked", "idempotencyKey": "tenantId:source_register_version" },
+        { "id": "W1.2_jtbd_and_objections", "inputs": ["source_scope", "sanitized_research_summary"], "output": "research_hypotheses", "failureState": "blocked", "idempotencyKey": "tenantId:research_scope_version:jtbd" },
+        { "id": "W1.3_positioning_hypothesis", "inputs": ["research_hypotheses", "product_truth"], "output": "value_hypothesis", "failureState": "blocked", "idempotencyKey": "tenantId:productTruthVersion:positioning" },
+        { "id": "W1.4_experiment_brief", "inputs": ["value_hypothesis", "product_truth"], "output": "versioned_brief", "failureState": "blocked", "idempotencyKey": "tenantId:briefVersion" },
+        { "id": "W1.5_measurement_plan", "inputs": ["versioned_brief", "event_ownership_map"], "output": "metric_and_guardrail_plan", "failureState": "blocked", "idempotencyKey": "tenantId:briefVersion:metricDefinitionVersion" }
+      ],
+      "humanGate": "owner_accepts_research_scope"
+    },
+    {
+      "workflowId": "W2_content_factory",
+      "inputs": ["approved_brief", "product_truth", "brand_pack", "licensed_or_owned_asset_references"],
+      "output": "internal_asset_package",
+      "allowedStateTransitions": [
+        { "from": "brief_ready_for_internal_drafts", "to": "qa_pass_pending_human", "when": "the package passes deterministic lint and independent QA" },
+        { "from": "brief_ready_for_internal_drafts", "to": "repair_required", "when": "a repairable quality finding is recorded" },
+        { "from": "brief_ready_for_internal_drafts", "to": "blocked", "when": "any hard-fail control, source-rights issue, or identity-boundary leak occurs" }
+      ],
+      "failureState": "blocked",
+      "idempotencyRule": "Use tenant identifier, brief version, and package version; any copy, visual, claim, destination, or locale change creates a new review version.",
+      "stages": [
+        { "id": "W2.1_claim_resolution", "inputs": ["approved_brief", "product_truth"], "output": "allowed_claim_set", "failureState": "blocked", "idempotencyKey": "tenantId:briefVersion:claimSet" },
+        { "id": "W2.2_concept_variants", "inputs": ["approved_brief", "allowed_claim_set", "brand_pack"], "output": "three_or_more_concepts", "failureState": "blocked", "idempotencyKey": "tenantId:briefVersion:conceptSet" },
+        { "id": "W2.3_locale_aware_copy", "inputs": ["three_or_more_concepts", "brand_pack"], "output": "copy_draft", "failureState": "blocked", "idempotencyKey": "tenantId:conceptSetVersion:locale" },
+        { "id": "W2.4_visual_and_accessibility_direction", "inputs": ["copy_draft", "licensed_or_owned_asset_references", "brand_pack"], "output": "visual_brief", "failureState": "blocked", "idempotencyKey": "tenantId:copyVersion:visualBrief" },
+        { "id": "W2.5_automated_hard_fail_lint", "inputs": ["copy_draft", "visual_brief", "allowed_claim_set"], "output": "lint_verdict", "failureState": "blocked", "idempotencyKey": "tenantId:packageVersion:lintRulesVersion" },
+        { "id": "W2.6_independent_qa", "inputs": ["lint_verdict", "copy_draft", "visual_brief", "product_truth"], "output": "qa_verdict_or_repair", "failureState": "blocked", "idempotencyKey": "tenantId:packageVersion:qaRubricVersion" },
+        { "id": "W2.7_human_decision", "inputs": ["qa_verdict_or_repair"], "output": "internal_review_record", "failureState": "repair_required", "idempotencyKey": "tenantId:packageVersion:humanDecision" }
+      ],
+      "humanGate": "editor_or_owner_decision"
+    },
+    {
+      "workflowId": "W6_learning_to_product",
+      "inputs": ["aggregate_learning_export", "qa_outcomes", "experiment_definition", "metric_definition"],
+      "output": "aggregate_learning_note",
+      "allowedStateTransitions": [
+        { "from": "approved_aggregate_input", "to": "learning_note_pending_triage", "when": "the privacy and data-quality checks pass" },
+        { "from": "approved_aggregate_input", "to": "blocked", "when": "the input is below threshold, contains a restricted class, or lacks a receipt hash" }
+      ],
+      "failureState": "blocked",
+      "idempotencyRule": "Use tenant alias, experiment window, workflow version, and metric definition version; do not merge raw tenant records or overwrite an accepted learning note.",
+      "stages": [
+        { "id": "W6.1_aggregate_input_check", "inputs": ["aggregate_learning_export"], "output": "privacy_validated_input", "failureState": "blocked", "idempotencyKey": "tenantAlias:experimentWindow:receiptHash" },
+        { "id": "W6.2_quality_and_funnel_readout", "inputs": ["privacy_validated_input", "qa_outcomes", "metric_definition"], "output": "diagnostic_summary", "failureState": "blocked", "idempotencyKey": "tenantAlias:experimentWindow:metricDefinitionVersion" },
+        { "id": "W6.3_hypothesis_update", "inputs": ["diagnostic_summary", "experiment_definition"], "output": "learning_note", "failureState": "blocked", "idempotencyKey": "tenantAlias:experimentWindow:learningHypothesis" },
+        { "id": "W6.4_product_or_content_ticket", "inputs": ["learning_note"], "output": "proposed_ticket", "failureState": "blocked", "idempotencyKey": "tenantAlias:learningNoteVersion:ticket" },
+        { "id": "W6.5_owner_triage", "inputs": ["learning_note", "proposed_ticket"], "output": "continue_revise_or_pause_decision", "failureState": "blocked", "idempotencyKey": "tenantAlias:learningNoteVersion:triage" }
+      ],
+      "humanGate": "product_owner_triage"
+    }
+  ],
+  "deferredExecutionWorkflows": [
+    { "workflowId": "W3_distribution_orchestration", "reason": "No channel capability, account owner or execution receipt in Sprint 01." },
+    { "workflowId": "W4_controlled_publishing", "reason": "No approval envelope, OAuth, receipt, retry or retraction implementation in Sprint 01." },
+    { "workflowId": "W5_paid_media", "reason": "No consented attribution, budget cap, account owner or kill switch in Sprint 01." }
+  ]
+}

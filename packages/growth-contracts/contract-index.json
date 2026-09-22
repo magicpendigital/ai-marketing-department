@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0.0",
+  "contracts": [
+    "schemas/product-truth.schema.json",
+    "schemas/content-brief.schema.json",
+    "schemas/asset-package.schema.json",
+    "schemas/qa-verdict.schema.json",
+    "schemas/approval-record.schema.json",
+    "schemas/execution-receipt.schema.json",
+    "schemas/learning-export.schema.json"
+  ],
+  "dataBoundary": "Contracts may describe only sanitized configuration, approved public material references, or de-identified aggregate learning."
+}

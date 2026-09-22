@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "1.0.0",
+  "contractId": "growth_agent_runner_contract",
+  "purpose": "Define a provider-neutral boundary between a validated internal marketing job and an owner-configured AI runner.",
+  "defaultAdapterMode": "disabled",
+  "permittedAdapterModes": [
+    "disabled",
+    "mock",
+    "owner_configured"
+  ],
+  "permittedWorkflowIds": [
+    "W0_readiness",
+    "W1_research_to_plan",
+    "W2_content_factory",
+    "W6_learning_to_product"
+  ],
+  "jobLifecycle": [
+    "validate_tenant_boundary",
+    "prepare_sanitized_job",
+    "invoke_owner_configured_runner",
+    "redact_and_store_internal_draft",
+    "run_deterministic_lint",
+    "run_independent_qa",
+    "await_human_decision"
+  ],
+  "requiredJobFields": [
+    "tenantId",
+    "workflowId",
+    "inputArtifactReferences",
+    "outputArtifactType",
+    "allowedDataClasses",
+    "promptVersion",
+    "qualityGateVersion",
+    "idempotencyKey"
+  ],
+  "forbiddenJobInputs": [
+    "provider_api_key",
+    "oauth_token",
+    "customer_identifier",
+    "contact_detail",
+    "private_conversation",
+    "sensitive_personal_data",
+    "raw_ad_platform_data",
+    "unlicensed_source_material"
+  ],
+  "requiredReceiptFields": [
+    "jobId",
+    "tenantId",
+    "workflowId",
+    "inputReferenceHashes",
+    "outputReference",
+    "redactionVerdict",
+    "lintVerdict",
+    "qaVerdict",
+    "humanDecisionState"
+  ],
+  "hardStops": [
+    "The runner may not receive credentials through this framework repository.",
+    "The runner may not publish, schedule, send, contact people, create a campaign, upload an audience, spend money, or modify a product.",
+    "The runner may not write a final approval or external-execution receipt.",
+    "A tenant must remain isolated; only approved aggregate LearningExport records may cross tenant boundaries."
+  ],
+  "implementationStatus": "contract_only_no_provider_adapter_included"
+}

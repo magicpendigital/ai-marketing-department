@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "draft_only_template",
+  "isSynthetic": true,
+  "purpose": "A fictional, no-action onboarding manifest for a new AI business using the portable marketing framework.",
+  "frameworkVersion": "__GROWTH_CORE_VERSION__",
+  "requiredBeforeW0Pass": [
+    {
+      "id": "brand_pack_reviewed",
+      "ownerRole": "brand_or_product_owner",
+      "evidence": "brand-pack.json",
+      "status": "not_started"
+    },
+    {
+      "id": "business_pack_reviewed",
+      "ownerRole": "product_and_growth_owner",
+      "evidence": "business-pack.json",
+      "status": "not_started"
+    },
+    {
+      "id": "role_mapping_reviewed",
+      "ownerRole": "tenant_lead",
+      "evidence": "role-mapping.json",
+      "status": "not_started"
+    },
+    {
+      "id": "product_truth_verified",
+      "ownerRole": "product_evidence_owner",
+      "evidence": "product-truth.json",
+      "status": "not_started"
+    },
+    {
+      "id": "consent_and_data_map_reviewed",
+      "ownerRole": "privacy_owner",
+      "evidence": "privacy/consent-data-map.json",
+      "status": "not_started"
+    },
+    {
+      "id": "channel_capability_reviewed",
+      "ownerRole": "channel_owner",
+      "evidence": "channels/capability-matrix.json",
+      "status": "not_started"
+    },
+    {
+      "id": "research_boundary_reviewed",
+      "ownerRole": "research_owner",
+      "evidence": "research/source-register.json",
+      "status": "not_started"
+    },
+    {
+      "id": "measurement_definition_reviewed",
+      "ownerRole": "analytics_owner",
+      "evidence": "measurement/event-ownership-map.json",
+      "status": "not_started"
+    },
+    {
+      "id": "journey_map_reviewed",
+      "ownerRole": "journey_or_product_owner",
+      "evidence": "journey/journey-map.json",
+      "status": "not_started"
+    },
+    {
+      "id": "risk_register_reviewed",
+      "ownerRole": "security_or_product_owner",
+      "evidence": "risk-register.json",
+      "status": "not_started"
+    },
+    {
+      "id": "sprint_readiness_reviewed",
+      "ownerRole": "tenant_lead",
+      "evidence": "readiness.json",
+      "status": "not_started"
+    },
+    {
+      "id": "isolated_data_plane_confirmed",
+      "ownerRole": "security_or_platform_owner",
+      "evidence": "business-pack.json:dataPlane",
+      "status": "not_started"
+    },
+    {
+      "id": "human_approval_owner_assigned",
+      "ownerRole": "tenant_lead",
+      "evidence": "business-pack.json:approvalAuthority",
+      "status": "not_started"
+    },
+    {
+      "id": "incident_owner_assigned",
+      "ownerRole": "tenant_lead",
+      "evidence": "business-pack.json:incidentResponse",
+      "status": "not_started"
+    }
+  ],
+  "sprint01Restriction": "No artifact may transition beyond qa_pass_pending_human, and no external action is authorized.",
+  "crossTenantBoundary": "Only approved aggregate_deidentified LearningExport records may be compared across tenants.",
+  "prohibitedInputs": [
+    "customer_identifier",
+    "contact_detail",
+    "private_conversation",
+    "sensitive_personal_data",
+    "provider_or_oauth_secret",
+    "raw_ad_platform_data",
+    "unlicensed_source_material"
+  ]
+}

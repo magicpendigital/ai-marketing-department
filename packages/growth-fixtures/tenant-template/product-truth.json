@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "ai-business-template",
+  "brandPackVersion": "unknown",
+  "status": "not_onboarded",
+  "features": [],
+  "blockedReason": "A real business must provide its own evidence-bound ProductTruth in its private repository before W0 can pass."
+}

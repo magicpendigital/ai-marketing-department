@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "sprintId": "__TENANT_SLUG___marketing_ai_sprint_01",
+  "mode": "draft_only",
+  "isSynthetic": true,
+  "externalAction": "forbidden",
+  "implementedWorkflowIds": [
+    "W0_readiness",
+    "W1_research_to_plan",
+    "W2_content_factory",
+    "W6_learning_to_product"
+  ],
+  "deferredWorkflowIds": [
+    "W3_distribution_orchestration",
+    "W4_controlled_publishing",
+    "W5_paid_media"
+  ],
+  "identityBoundary": {
+    "ownBrandTokens": [
+      "__TENANT_BRAND_TOKEN__"
+    ],
+    "knownForeignBrandTokens": [
+      "__ISOLATION_TEST_SENTINEL__"
+    ],
+    "rule": "Tenant content may use only its own approved identity. knownForeignBrandTokens is a test-only sentinel used to prove isolation; a real foreign-tenant identity token is neither required nor permitted in normal tenant configuration."
+  },
+  "externalReadiness": {
+    "status": "blocked",
+    "requiredGates": [
+      "current_product_truth",
+      "human_editorial_review",
+      "working_destination_and_consent_proof",
+      "visual_rights_proof",
+      "aggregate_event_telemetry_proof",
+      "isolated_data_plane_proof",
+      "channel_owner_and_execution_envelope"
+    ],
+    "reason": "This scaffold creates only internal plans, empty registries, and placeholder evidence requirements."
+  },
+  "dataPlane": {
+    "tenantRuntime": "A private tenant repository and separately controlled backend are required before any real data exists.",
+    "crossTenantLearning": "Only approved aggregate_deidentified LearningExport records may leave a tenant after a future gate."
+  }
+}

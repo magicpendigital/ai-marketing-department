@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "draft_only_no_outreach",
+  "isSynthetic": true,
+  "minimumParticipantAge": 18,
+  "participantTarget": {
+    "minimum": 15,
+    "maximum": 20,
+    "market": "__TARGET_MARKET__",
+    "primaryLocale": "__PRIMARY_LOCALE__"
+  },
+  "purpose": "Test a value hypothesis and first-use clarity without collecting sensitive personal content or recruiting before consent review.",
+  "consentBoundary": [
+    "Participation is voluntary and may stop at any time.",
+    "Do not request customer identifiers, contact details, private conversations, health details, financial details, legal matters, images, or other sensitive information.",
+    "Do not compensate positive feedback, app opens, referrals, or conversion.",
+    "Store only an approved aggregate research synthesis; do not place raw responses in the portable framework or a shared learning export."
+  ],
+  "questions": [
+    "What first value did you expect from this invitation?",
+    "Which wording felt specific, useful, or unclear?",
+    "What would make this experience meaningfully different from a general AI tool?",
+    "Which claim would you want the product to prove before you trust it?",
+    "What would make you return after a first useful action?",
+    "Where would you expect consent, control, or an opt-out choice?",
+    "What would make you stop using the product after one try?",
+    "What should the product avoid claiming or asking from a user?"
+  ],
+  "analysisOutput": "aggregate JTBD themes, objections, and internal product or content tickets without identifiers",
+  "externalAction": "forbidden_until_recruitment_and_consent_are_reviewed"
+}

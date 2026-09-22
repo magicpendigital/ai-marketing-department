@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "initialMode": "draft_only",
+  "requiredSetupFiles": [
+    "tenant-config.json",
+    "brand-pack.json",
+    "business-pack.json",
+    "product-truth.json",
+    "role-mapping.json",
+    "readiness.json",
+    "risk-register.json",
+    "onboarding-manifest.json",
+    "privacy/consent-data-map.json",
+    "channels/capability-matrix.json",
+    "journey/journey-map.json",
+    "research/source-register.json",
+    "research/interview-kit.json",
+    "measurement/event-ownership-map.json",
+    "campaigns/experiment-brief.json",
+    "learning/learning-note.json",
+    "briefs/index.json",
+    "content-drafts/index.json",
+    "approvals/index.json"
+  ],
+  "requiredBeforeW0": [
+    "tenant_identity_boundary",
+    "brand_pack",
+    "business_owner",
+    "product_truth_evidence",
+    "consent_and_data_map",
+    "channel_capability_matrix",
+    "activation_event_definition",
+    "measurement_owner",
+    "incident_owner",
+    "human_approval_owner"
+  ],
+  "prohibitedUntilExecutionGates": ["publish", "send", "schedule", "oauth", "ad_account", "paid_spend", "customer_data_import", "raw_private_content"],
+  "setupStates": ["scaffolded", "incomplete", "ready_for_internal_drafts", "blocked"],
+  "externalGateReminder": "A validated tenant configuration does not grant E1, E2 or E3 external execution authority."
+}

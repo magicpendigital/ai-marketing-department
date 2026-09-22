@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "draft_only_template",
+  "isSynthetic": true,
+  "channels": [
+    {
+      "id": "__TENANT_SLUG___future_channel",
+      "type": "__CHANNEL_TYPE__",
+      "ownerRole": "__CHANNEL_OWNER_ROLE__",
+      "status": "disabled",
+      "allowedActions": [
+        "internal_draft_only"
+      ],
+      "preflightStatus": "not_started",
+      "rollbackPlanReference": "__TENANT_ROLLBACK_PLAN_REFERENCE__",
+      "receiptPlanReference": "__TENANT_EXECUTION_RECEIPT_PLAN_REFERENCE__",
+      "destinationStatus": "not_connected",
+      "externalAction": "forbidden"
+    }
+  ],
+  "globalRestrictions": [
+    "No channel account, OAuth token, sender credential, schedule, post, message, audience, campaign, or spend may be created in Sprint 01.",
+    "A later E2 or E3 gate must bind a named channel owner, approval envelope, rollback plan, receipt plan, and incident route to the exact execution version."
+  ],
+  "externalAction": "forbidden"
+}

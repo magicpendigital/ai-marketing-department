@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "draft_only_template",
+  "isSynthetic": true,
+  "brandPackVersion": "__BRAND_PACK_VERSION__",
+  "businessContext": {
+    "category": "__AI_PRODUCT_CATEGORY__",
+    "targetMarket": "__TARGET_MARKET__",
+    "primaryLocale": "__PRIMARY_LOCALE__",
+    "valueHypothesis": "__EVIDENCE_BACKED_VALUE_HYPOTHESIS__",
+    "nonTargetSegments": [
+      "__EXCLUDED_SEGMENT_OR_USE_CASE__"
+    ]
+  },
+  "activationEvent": {
+    "id": "__TENANT_SLUG___valuable_activation",
+    "definition": "__USER_OBSERVABLE_VALUE_ACTION__",
+    "status": "unverified_definition_only"
+  },
+  "channelCapabilities": [
+    {
+      "channel": "__CHANNEL_NAME__",
+      "status": "disabled",
+      "allowedActions": [
+        "internal_draft_only"
+      ],
+      "externalAction": "forbidden"
+    }
+  ],
+  "destinations": [
+    {
+      "id": "__TENANT_SLUG___future_destination",
+      "purpose": "__FUTURE_DESTINATION_PURPOSE__",
+      "status": "not_connected",
+      "consentStatus": "not_reviewed",
+      "externalAction": "forbidden"
+    }
+  ],
+  "approvalAuthority": {
+    "role": "__HUMAN_APPROVAL_OWNER_ROLE__",
+    "status": "unassigned"
+  },
+  "incidentResponse": {
+    "role": "__INCIDENT_OWNER_ROLE__",
+    "status": "unassigned"
+  },
+  "dataPlane": {
+    "backend": "separate_project_required",
+    "analytics": "separate_property_required",
+    "senderDomain": "separate_domain_required",
+    "credentialStore": "separate_secret_store_required",
+    "sharedDatabaseWithTenantColumn": "not_accepted"
+  },
+  "commercialBoundary": {
+    "budgetCap": "not_authorized",
+    "paidCampaign": "forbidden",
+    "publishing": "forbidden",
+    "outreach": "forbidden"
+  }
+}

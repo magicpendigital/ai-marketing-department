@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0.0",
+  "purpose": "Allow-list for a future clean private GitHub repository of the portable framework.",
+  "repositoryVisibility": "private_until_owner_decides_otherwise",
+  "exportMode": "allow_list_only",
+  "include": [
+    "packages/growth-contracts",
+    "packages/growth-core",
+    "packages/growth-fixtures",
+    "scripts/growth-framework-validator.mjs",
+    "scripts/validate-growth-framework.mjs",
+    "scripts/growth-framework.test.mjs",
+    "scripts/export-growth-framework.mjs",
+    "scripts/init-growth-tenant.mjs",
+    "scripts/validate-growth-tenant.mjs",
+    "scripts/growth-tenant-demo.mjs",
+    "scripts/validate-growth-tenant-demo.mjs",
+    "scripts/growth-tenant-onboarding.test.mjs",
+    "scripts/prepare-growth-job.mjs",
+    "scripts/growth-job-preparation.test.mjs",
+    "scripts/validate-growth-tenant-artifacts.mjs",
+    "scripts/growth-tenant-artifacts.test.mjs",
+    "scripts/growth-two-tenant-demo.mjs",
+    "scripts/growth-two-tenant-demo.test.mjs",
+    "scripts/validate-growth-tenant-learning-export.mjs",
+    "scripts/compare-growth-tenant-learning-exports.mjs",
+    "scripts/growth-tenant-learning-demo.mjs",
+    "scripts/growth-tenant-learning-export.test.mjs"
+  ],
+  "nonIncludedPathsAreExcluded": true,
+  "neverExport": [
+    "customer_data",
+    "consent_records",
+    "email_or_phone",
+    "raw_utm",
+    "raw_chat_or_journal",
+    "birth_or_chart_data",
+    "face_upload",
+    "prompt_or_trace_payload",
+    "brand_assets_or_proprietary_content",
+    "provider_or_oauth_secret",
+    "ad_audience_or_receipt"
+  ],
+  "requiredBeforeGitHub": [
+    "F1_framework_quality_pass",
+    "two_tenant_synthetic_conformance_pass",
+    "isolation_negative_test_pass",
+    "learning_export_privacy_test_pass",
+    "owner_approves_repository_name_owner_visibility_license",
+    "dependency_and_ip_review"
+  ]
+}

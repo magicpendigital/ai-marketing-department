@@ -1,0 +1,38 @@
+name: Framework Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  framework-quality:
+    name: Validate portable framework and synthetic tenant demo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up supported Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate portable framework
+        run: npm run validate
+
+      - name: Run framework tests
+        run: npm test
+
+      - name: Validate synthetic tenant demo
+        run: npm run tenant:demo:validate
+
+      - name: Validate two-tenant isolation demo
+        run: npm run tenant:two:validate
+
+      - name: Validate two-tenant aggregate learning comparison demo
+        run: npm run tenant:learning:demo

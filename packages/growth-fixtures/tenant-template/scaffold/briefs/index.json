@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "empty_draft_only_registry",
+  "isSynthetic": true,
+  "purpose": "Register internal experiment briefs after ProductTruth, research boundaries, and measurement definitions are reviewed.",
+  "briefs": [],
+  "requiredFieldsForEachBrief": [
+    "id",
+    "tenantId",
+    "hypothesis",
+    "claimRefs",
+    "formats",
+    "destinationId",
+    "primaryMetric",
+    "guardrails"
+  ],
+  "sprint01Limit": "A brief may be created for internal QA only and cannot authorize an external audience, destination, campaign, publication, outreach, or spend.",
+  "externalAction": "forbidden"
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantAlias": "tenant-a1b2c3d4",
+  "workflowVersion": "growth-workflows-b0-b1-v1",
+  "experimentWindow": "2026-W38",
+  "cohortSizeBucket": "20-49",
+  "metricDefinitionVersion": "growth-metrics-v1",
+  "dataClassification": "aggregate_deidentified",
+  "isSynthetic": true,
+  "qaOutcomes": {
+    "accepted": 0,
+    "revised": 0,
+    "blocked": 0
+  },
+  "funnelMetrics": {},
+  "costBuckets": {},
+  "privacyExportVerdict": "pass",
+  "sourceReceiptHash": "synthetic:fixture-no-live-data"
+}

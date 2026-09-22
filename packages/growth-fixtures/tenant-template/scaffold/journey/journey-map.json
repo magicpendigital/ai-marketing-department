@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "draft_only_template",
+  "isSynthetic": true,
+  "ownerRole": "__JOURNEY_OWNER_ROLE__",
+  "lastReviewedAt": "__YYYY-MM-DD__",
+  "purpose": "Define a privacy-safe first-value journey and its aggregate measurement hypotheses before a tenant creates internal content drafts.",
+  "stages": [
+    {
+      "id": "__TENANT_SLUG___first_value_entry",
+      "entryCondition": "__ELIGIBLE_ENTRY_DESCRIPTION__",
+      "intendedValueMoment": "__TENANT_DEFINED_OBSERVABLE_VALUE_MOMENT__",
+      "dropOffHypothesis": "__NON_SENSITIVE_CLARITY_OR_FRICTION_HYPOTHESIS__",
+      "eventRefs": [
+        "__TENANT_SLUG___eligible_destination_view",
+        "__TENANT_SLUG___valuable_activation"
+      ],
+      "decisionUse": "__WHAT_INTERNAL_COPY_OR_PRODUCT_QUESTION_THIS_STAGE_INFORMS__",
+      "guardrails": [
+        "aggregate_only",
+        "no_sensitive_targeting",
+        "no_external_action_without_later_gate"
+      ]
+    }
+  ],
+  "measurementBoundary": "Use only aggregate event definitions from measurement/event-ownership-map.json. Do not place individual behavior, contact details, private content, profile traits, or raw tracking data here.",
+  "externalAction": "forbidden"
+}

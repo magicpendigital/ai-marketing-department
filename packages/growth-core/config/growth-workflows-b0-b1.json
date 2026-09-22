@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0.0",
+  "workflowCatalogId": "growth_workflows_b0_b1",
+  "mode": "draft_only",
+  "externalAction": "forbidden",
+  "workflows": [
+    {
+      "id": "W0_readiness",
+      "ownerCapability": "workflow_orchestration",
+      "steps": ["product_truth", "brand_pack_reference", "event_ownership", "capability_matrix", "risk_log"],
+      "output": "tenant_readiness_record",
+      "humanGate": "owner_accepts_product_truth",
+      "stopCondition": "No content creation if claim evidence or data boundary is missing."
+    },
+    {
+      "id": "W1_research_to_plan",
+      "ownerCapability": "content_research",
+      "steps": ["source_review", "jtbd_hypothesis", "experiment_brief", "measurement_plan"],
+      "output": "versioned_brief",
+      "humanGate": "owner_accepts_research_scope",
+      "stopCondition": "No outreach, audience upload or external market conclusion."
+    },
+    {
+      "id": "W2_content_factory",
+      "ownerCapability": "content_authoring",
+      "steps": ["brief", "three_concepts", "asset_draft", "deterministic_lint", "independent_qa", "human_decision"],
+      "output": "internal_asset_package",
+      "humanGate": "editor_or_owner_decision",
+      "stopCondition": "No publish, schedule, send or paid placement."
+    },
+    {
+      "id": "W6_learning_to_product",
+      "ownerCapability": "measurement_analysis",
+      "steps": ["aggregate_signal", "learning_note", "hypothesis", "product_ticket_draft"],
+      "output": "aggregate_learning_note",
+      "humanGate": "product_owner_triage",
+      "stopCondition": "No automatic prompt, UI, pricing or product change."
+    }
+  ]
+}

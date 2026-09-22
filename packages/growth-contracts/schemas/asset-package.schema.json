@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Growth Asset Package",
+  "type": "object",
+  "required": [
+    "id", "tenantId", "briefId", "version", "artifactKind", "status", "lifecycleState", "format", "claimRefs", "copy", "visualBrief", "destination", "measurement", "productionRecord", "qa", "approval", "externalReadiness"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "tenantId": { "type": "string" },
+    "briefId": { "type": "string" },
+    "version": { "type": "string" },
+    "artifactKind": { "const": "concept_copy_package" },
+    "status": { "enum": ["draft_internal", "reviewed_internal", "approved_candidate", "blocked"] },
+    "lifecycleState": { "enum": ["draft_internal", "qa_pass_pending_human", "human_reviewed_internal", "external_candidate", "approved_execution_envelope", "invalidated", "expired", "blocked"] },
+    "format": { "enum": ["static", "carousel", "short_video"] },
+    "claimRefs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "copy": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["headline", "body", "caption", "cta", "altText"],
+        "properties": {
+          "headline": { "type": "string" },
+          "body": { "type": "string" },
+          "caption": { "type": "string" },
+          "cta": { "type": "string" },
+          "altText": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "visualBrief": {
+      "type": "object",
+      "required": ["source", "reference", "rightsStatus", "provenanceStatus", "accessibility"],
+      "properties": {
+        "source": { "type": "string" },
+        "reference": { "type": "string" },
+        "rightsStatus": { "type": "string" },
+        "provenanceStatus": { "type": "string" },
+        "accessibility": { "type": "object" },
+        "durationSecondsMax": { "type": "number" },
+        "storyboard": { "type": "array" },
+        "captionTranscript": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "destination": { "type": "object", "required": ["id", "status"] },
+    "measurement": { "type": "object", "required": ["hypothesis", "primaryMetric", "denominator", "guardrails"] },
+    "productionRecord": { "type": "object", "required": ["skillVersion", "source", "modelVersion", "timeEstimateMinutes", "costUsd", "costStatus"] },
+    "qa": { "type": "object", "required": ["automatedVerdict", "independentQaStatus", "hardFailureCodes", "softScores", "reviewerRole", "repairCycles"] },
+    "approval": {
+      "type": "object",
+      "required": ["status", "artifactHash", "targetChannel", "expiry"],
+      "properties": {
+        "status": { "enum": ["not_submitted", "approved", "expired", "invalidated", "blocked"] },
+        "artifactHash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+        "targetChannel": { "type": ["string", "null"] },
+        "expiry": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "externalReadiness": { "type": "object", "required": ["status", "blockingGates"] }
+  },
+  "additionalProperties": false
+}

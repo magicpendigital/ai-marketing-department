@@ -1,0 +1,6 @@
+{
+  "name": "@growth-framework/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Policy, workflows, skill catalog, quality gates and measurement definitions for a portable AI growth framework."
+}

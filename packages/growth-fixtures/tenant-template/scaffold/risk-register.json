@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "draft_only_template",
+  "isSynthetic": true,
+  "purpose": "Track risks before a tenant creates an external candidate. This is an internal planning register, not an execution authorization.",
+  "risks": [
+    {
+      "id": "unsupported_claim",
+      "trigger": "A draft uses a claim without current ProductTruth evidence.",
+      "severity": "high",
+      "ownerRole": "product_truth_owner",
+      "mitigation": "Block the claim, attach reviewable evidence, or rewrite the draft as a clearly labeled future hypothesis.",
+      "sprint01Status": "open_until_product_truth_review"
+    },
+    {
+      "id": "cross_tenant_leak",
+      "trigger": "A brand, asset, source, destination, approval, receipt, prompt, or data record appears to come from another tenant.",
+      "severity": "critical",
+      "ownerRole": "tenant_lead",
+      "mitigation": "Stop the workflow, remove the material, run the negative isolation test, and record only aggregate lessons after privacy review.",
+      "sprint01Status": "open_until_identity_boundary_review"
+    },
+    {
+      "id": "sensitive_or_personal_data",
+      "trigger": "A draft, research artifact, metric, or export contains an identifier, private content, sensitive profile, or sensitive inference.",
+      "severity": "critical",
+      "ownerRole": "security_privacy_owner",
+      "mitigation": "Block the artifact, remove the data, review the intake path, and retain only approved aggregate synthesis.",
+      "sprint01Status": "open_until_data_boundary_review"
+    },
+    {
+      "id": "unlicensed_or_misleading_creative",
+      "trigger": "A visual, source, testimonial, product screenshot, or endorsement lacks rights or provenance proof.",
+      "severity": "high",
+      "ownerRole": "brand_or_design_owner",
+      "mitigation": "Use only tenant-owned or licensed references with accessible descriptions and clear provenance.",
+      "sprint01Status": "open_until_asset_policy_review"
+    },
+    {
+      "id": "unclear_or_nonconsensual_destination",
+      "trigger": "A proposed call to action leads to an unreviewed destination or collection flow.",
+      "severity": "high",
+      "ownerRole": "product_or_privacy_owner",
+      "mitigation": "Keep the destination disabled until functionality, consent, retention, and opt-out behavior are reviewed.",
+      "sprint01Status": "open_until_destination_proof"
+    },
+    {
+      "id": "measurement_without_valid_definition",
+      "trigger": "A result, benchmark, or optimization decision is claimed without an approved denominator, event definition, or baseline.",
+      "severity": "medium",
+      "ownerRole": "analytics_owner",
+      "mitigation": "Use definition-only events until aggregate telemetry and metric ownership are verified.",
+      "sprint01Status": "open_until_measurement_review"
+    },
+    {
+      "id": "unauthorized_external_execution",
+      "trigger": "A role attempts publishing, outreach, account connection, spend, lead collection, or scheduling without a later execution envelope.",
+      "severity": "critical",
+      "ownerRole": "tenant_lead",
+      "mitigation": "Stop immediately; preserve only a sanitized internal record and require human review before any later retry.",
+      "sprint01Status": "blocked_by_design"
+    }
+  ],
+  "externalAction": "forbidden"
+}

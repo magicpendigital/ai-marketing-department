@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "1.0.0",
+  "mode": "draft_only",
+  "skills": [
+    {
+      "id": "growth-readiness",
+      "purpose": "Establish the tenant boundary, ProductTruth evidence, capability matrix and stop conditions before work begins.",
+      "ownerCapability": "workflow_orchestration",
+      "workflowIds": ["W0_readiness"],
+      "inputs": ["brand_pack", "business_pack", "product_truth", "data_boundary"],
+      "outputs": ["tenant_readiness_record"],
+      "humanGate": "owner_accepts_product_truth",
+      "stopCondition": "Stop if claim evidence, identity boundary, consent/data map or owner is missing."
+    },
+    {
+      "id": "growth-research",
+      "purpose": "Turn approved sources and consented summaries into JTBD hypotheses without outreach or sensitive inference.",
+      "ownerCapability": "content_research",
+      "workflowIds": ["W1_research_to_plan"],
+      "inputs": ["source_register", "sanitized_research_summary", "business_pack"],
+      "outputs": ["jtbd_hypothesis", "research_plan"],
+      "humanGate": "owner_accepts_research_scope",
+      "stopCondition": "Do not contact people, upload audiences or present a hypothesis as a market fact."
+    },
+    {
+      "id": "growth-positioning",
+      "purpose": "Create a falsifiable value hypothesis that differentiates a designed product flow from generic AI without unsupported superiority claims.",
+      "ownerCapability": "product_management",
+      "workflowIds": ["W1_research_to_plan", "W2_content_factory"],
+      "inputs": ["product_truth", "jtbd_hypothesis", "approved_evidence"],
+      "outputs": ["experiment_brief"],
+      "humanGate": "owner_accepts_positioning_hypothesis",
+      "stopCondition": "Block unverified product, commercial or comparative claims."
+    },
+    {
+      "id": "growth-content-factory",
+      "purpose": "Produce concept/copy packages in the tenant's required locales with provenance, accessibility direction and measurement definitions.",
+      "ownerCapability": "content_authoring",
+      "workflowIds": ["W2_content_factory"],
+      "inputs": ["approved_brief", "product_truth", "brand_pack"],
+      "outputs": ["concept_copy_package"],
+      "humanGate": "editor_or_owner_decision",
+      "stopCondition": "Return internal drafts only; never self-approve, schedule, send or publish."
+    },
+    {
+      "id": "growth-quality-gate",
+      "purpose": "Evaluate claims, privacy, safety, rights, localization, visual direction and operational traceability independently of the creator.",
+      "ownerCapability": "quality_assurance",
+      "workflowIds": ["W2_content_factory"],
+      "inputs": ["concept_copy_package", "product_truth", "quality_gates"],
+      "outputs": ["qa_verdict", "repair_request"],
+      "humanGate": "human_review_for_external_candidate",
+      "stopCondition": "Block every hard failure and do not advance an asset without a human decision."
+    },
+    {
+      "id": "growth-journey-measurement",
+      "purpose": "Define activation, repeat value, denominator and guardrails using aggregate, consent-scoped signals only.",
+      "ownerCapability": "measurement_analysis",
+      "workflowIds": ["W0_readiness", "W1_research_to_plan", "W6_learning_to_product"],
+      "inputs": ["event_ownership_map", "metric_contract", "consent_data_map"],
+      "outputs": ["journey_measurement_plan"],
+      "humanGate": "owner_accepts_metric_definition",
+      "stopCondition": "Do not collect or infer individual sensitive behavior."
+    },
+    {
+      "id": "growth-execution-preflight",
+      "purpose": "Prepare a channel package, approval envelope and rollback checklist without performing an external action.",
+      "ownerCapability": "design_operations",
+      "workflowIds": ["W3_distribution_orchestration", "W4_controlled_publishing", "W5_paid_media"],
+      "inputs": ["approved_execution_envelope", "channel_capability", "destination_proof"],
+      "outputs": ["preflight_checklist"],
+      "humanGate": "required_for_every_execution",
+      "stopCondition": "Stop before OAuth, scheduling, posting, sending, ad creation or spend."
+    },
+    {
+      "id": "growth-learning-synthesis",
+      "purpose": "Turn bounded aggregate results into a learning note and product/content hypotheses without automatic changes.",
+      "ownerCapability": "measurement_analysis",
+      "workflowIds": ["W6_learning_to_product"],
+      "inputs": ["aggregate_learning_export", "qa_outcomes", "experiment_definition"],
+      "outputs": ["learning_note", "product_ticket_draft"],
+      "humanGate": "product_owner_triage",
+      "stopCondition": "Do not compare raw customer data across tenants or change product, prompt, price or audience automatically."
+    }
+  ]
+}

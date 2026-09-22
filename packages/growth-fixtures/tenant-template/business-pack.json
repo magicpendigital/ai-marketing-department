@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "ai-business-template",
+  "status": "incomplete_by_design",
+  "brandPackVersion": "unknown",
+  "targetMarket": "unknown",
+  "locales": [],
+  "valueHypothesis": "unknown",
+  "activationEvent": "unknown",
+  "allowedChannels": [],
+  "approvalOwner": "unknown",
+  "incidentContact": "unknown",
+  "notes": "This template contains no real business facts, customer data, domain, URL, asset or product claim."
+}

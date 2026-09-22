@@ -1,0 +1,6 @@
+{
+  "name": "@growth-framework/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable data contracts for the tenant-isolated AI marketing framework."
+}

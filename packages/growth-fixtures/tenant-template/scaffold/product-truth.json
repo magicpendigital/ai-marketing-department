@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "brandPackVersion": "__BRAND_PACK_VERSION__",
+  "lastReviewedAt": "__YYYY-MM-DD__",
+  "features": [
+    {
+      "id": "__TENANT_SLUG___placeholder_feature",
+      "status": "not_onboarded",
+      "platforms": [
+        "__PLATFORM__"
+      ],
+      "evidence": [
+        {
+          "id": "__TENANT_SLUG___replace_with_verified_evidence",
+          "type": "replace_with_current_reviewable_evidence",
+          "reference": "__PRIVATE_EVIDENCE_REFERENCE__",
+          "expiresAt": "__YYYY-MM-DD__"
+        }
+      ],
+      "claims": [
+        {
+          "id": "__TENANT_SLUG___placeholder_claim",
+          "status": "blocked_until_evidence_review",
+          "allowedSurfaces": [
+            "internal_draft_only"
+          ],
+          "evidenceRefs": [
+            "__TENANT_SLUG___replace_with_verified_evidence"
+          ],
+          "expiresAt": "__YYYY-MM-DD__",
+          "copy": {
+            "__PRIMARY_LOCALE__": "__CLAIM_REQUIRING_EVIDENCE__"
+          }
+        }
+      ],
+      "prohibitedClaims": [
+        "guaranteed outcome",
+        "unsupported accuracy or performance claim",
+        "medical, legal, financial, or mental-health advice",
+        "sensitive-trait inference",
+        "real-person or official-expert impersonation"
+      ]
+    }
+  ]
+}

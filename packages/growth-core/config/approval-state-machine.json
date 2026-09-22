@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0.0",
+  "initialState": "draft_internal",
+  "states": [
+    "draft_internal",
+    "qa_pass_pending_human",
+    "human_reviewed_internal",
+    "external_candidate",
+    "approved_execution_envelope",
+    "invalidated",
+    "expired",
+    "blocked"
+  ],
+  "transitions": [
+    { "from": "draft_internal", "to": "qa_pass_pending_human", "requires": ["deterministic_qa_pass", "independent_qa_pass"] },
+    { "from": "qa_pass_pending_human", "to": "human_reviewed_internal", "requires": ["human_reviewer", "rubric_version", "reason_code", "reviewed_at"] },
+    { "from": "human_reviewed_internal", "to": "external_candidate", "requires": ["current_product_truth", "destination_proof", "visual_rights_proof"] },
+    { "from": "external_candidate", "to": "approved_execution_envelope", "requires": ["artifact_hash", "claim_evidence_version", "target_channel", "approval_owner", "expiry", "budget_cap_if_paid"] },
+    { "from": "approved_execution_envelope", "to": "invalidated", "requires": ["copy_or_visual_or_claim_or_destination_or_channel_or_schedule_or_budget_change"] },
+    { "from": "approved_execution_envelope", "to": "expired", "requires": ["expiry_reached"] }
+  ],
+  "sprint01Restriction": "No Sprint 01 artifact may transition beyond qa_pass_pending_human."
+}

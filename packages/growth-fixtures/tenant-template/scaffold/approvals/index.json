@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "no_approvals_created",
+  "isSynthetic": true,
+  "purpose": "Reserve a tenant-private record for later human review; this registry grants no publishing or execution authority.",
+  "approvalStateMachine": "growth-core/config/approval-state-machine.json",
+  "approvalOwner": "unassigned",
+  "records": [],
+  "sprint01Limit": "No Sprint 01 artifact may transition beyond qa_pass_pending_human.",
+  "requiredBeforeAnyLaterExecutionEnvelope": [
+    "current_product_truth",
+    "independent_qa_pass",
+    "human_reviewer",
+    "destination_proof",
+    "visual_rights_proof",
+    "target_channel",
+    "approval_expiry",
+    "budget_cap_if_paid"
+  ],
+  "externalAction": "forbidden"
+}

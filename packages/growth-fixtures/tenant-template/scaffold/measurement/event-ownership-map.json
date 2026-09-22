@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "definition_only_not_instrumented",
+  "isSynthetic": true,
+  "rule": "These are proposed aggregate event definitions. This file does not assert that an event is emitted, stored, or available for optimization.",
+  "events": [
+    {
+      "id": "__TENANT_SLUG___eligible_destination_view",
+      "ownerRole": "web_or_product_owner",
+      "purpose": "eligible destination denominator",
+      "dataClass": "aggregate_only",
+      "state": "not_instrumented"
+    },
+    {
+      "id": "__TENANT_SLUG___approved_cta_click",
+      "ownerRole": "web_or_product_owner",
+      "purpose": "message-to-destination intent",
+      "dataClass": "aggregate_only",
+      "state": "not_instrumented"
+    },
+    {
+      "id": "__TENANT_SLUG___consent_recorded",
+      "ownerRole": "product_or_privacy_owner",
+      "purpose": "consented collection confirmation when a later flow is approved",
+      "dataClass": "consent_scoped_aggregate",
+      "state": "not_instrumented"
+    },
+    {
+      "id": "__TENANT_SLUG___valuable_activation",
+      "ownerRole": "product_owner",
+      "purpose": "tenant-defined observable value action",
+      "dataClass": "aggregate_only",
+      "state": "not_instrumented"
+    },
+    {
+      "id": "__TENANT_SLUG___repeat_value_day",
+      "ownerRole": "analytics_owner",
+      "purpose": "two distinct tenant-defined value days in a reviewed window",
+      "dataClass": "aggregate_only",
+      "state": "not_instrumented"
+    }
+  ],
+  "forbiddenDimensions": [
+    "customer_identifier",
+    "contact_detail",
+    "private_content",
+    "sensitive_personal_data",
+    "raw_tracking_parameter",
+    "prompt_or_trace_payload",
+    "raw_ad_platform_data"
+  ],
+  "crossTenantSharing": "aggregate_deidentified_learning_export_only",
+  "externalAction": "forbidden"
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "sprintId": "__TENANT_SLUG___marketing_ai_sprint_01",
+  "status": "not_collected_draft_only",
+  "isSynthetic": true,
+  "dataSource": "none",
+  "currentHypotheses": [
+    "A tenant-specific, evidence-bound first-value invitation may be clearer than generic AI wording.",
+    "Trust, consent, and clarity must be reviewed alongside any activation definition.",
+    "No outcome may be treated as evidence until instrumentation, consent, and human review are complete."
+  ],
+  "comparisonRule": "Compare each tenant against its own baseline. Compare tenants only through approved aggregate_deidentified LearningExport records with aligned workflowVersion and metricDefinitionVersion.",
+  "prohibitedLearningInputs": [
+    "customer_identifier",
+    "contact_detail",
+    "private_content",
+    "sensitive_personal_data",
+    "raw_ad_platform_data",
+    "prompt_or_trace_payload",
+    "provider_or_oauth_secret"
+  ],
+  "nextEvidenceNeeded": [
+    "human editorial review",
+    "product_truth_evidence_review",
+    "consented research synthesis",
+    "verified aggregate event telemetry"
+  ],
+  "externalAction": "forbidden"
+}

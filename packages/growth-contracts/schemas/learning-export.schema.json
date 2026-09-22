@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "De-identified Growth Learning Export",
+  "type": "object",
+  "required": [
+    "schemaVersion", "tenantAlias", "workflowVersion", "experimentWindow", "cohortSizeBucket", "metricDefinitionVersion", "dataClassification", "isSynthetic", "qaOutcomes", "funnelMetrics", "costBuckets", "privacyExportVerdict", "sourceReceiptHash"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "tenantAlias": { "type": "string", "pattern": "^tenant-[a-f0-9]{8}$" },
+    "workflowVersion": { "type": "string" },
+    "experimentWindow": { "type": "string" },
+    "cohortSizeBucket": { "enum": ["20-49", "50-99", "100+"] },
+    "metricDefinitionVersion": { "type": "string" },
+    "dataClassification": { "const": "aggregate_deidentified" },
+    "isSynthetic": { "type": "boolean" },
+    "privacyExportVerdict": { "enum": ["pass", "blocked"] },
+    "qaOutcomes": {
+      "type": "object",
+      "required": ["accepted", "revised", "blocked"],
+      "properties": {
+        "accepted": { "type": "number" },
+        "revised": { "type": "number" },
+        "blocked": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "funnelMetrics": {
+      "type": "object",
+      "properties": {
+        "valuableActivationRateBucket": { "enum": ["not_collected", "0_4_percent", "5_9_percent", "10_19_percent", "20_39_percent", "40_59_percent", "60_79_percent", "80_100_percent"] },
+        "repeatValueDays7dBucket": { "enum": ["not_collected", "0_4_percent", "5_9_percent", "10_19_percent", "20_39_percent", "40_59_percent", "60_79_percent", "80_100_percent"] },
+        "optOutRateBucket": { "enum": ["not_collected", "0_4_percent", "5_9_percent", "10_19_percent", "20_39_percent", "40_59_percent", "60_79_percent", "80_100_percent"] }
+      },
+      "additionalProperties": false
+    },
+    "costBuckets": {
+      "type": "object",
+      "properties": {
+        "creative": { "enum": ["not_collected", "under_50", "50_199", "200_499", "500_999", "1000_plus"] },
+        "ai": { "enum": ["not_collected", "under_50", "50_199", "200_499", "500_999", "1000_plus"] },
+        "media": { "enum": ["not_collected", "under_50", "50_199", "200_499", "500_999", "1000_plus"] },
+        "human": { "enum": ["not_collected", "under_50", "50_199", "200_499", "500_999", "1000_plus"] }
+      },
+      "additionalProperties": false
+    },
+    "sourceReceiptHash": { "type": "string", "pattern": "^(synthetic:[a-z0-9-]+|sha256:[a-f0-9]{64})$" }
+  },
+  "additionalProperties": false
+}

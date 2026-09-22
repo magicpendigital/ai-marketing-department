@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Growth Approval Record",
+  "type": "object",
+  "required": ["tenantId", "artifactId", "artifactVersion", "artifactHash", "configVersion", "targetChannel", "expiry", "status"],
+  "properties": {
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "artifactId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "artifactVersion": { "type": "string", "pattern": "^.+$" },
+    "artifactHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "configVersion": { "type": "string" },
+    "targetChannel": { "type": "string" },
+    "expiry": { "type": "string" },
+    "status": { "enum": ["not_submitted", "approved", "expired", "invalidated", "blocked"] }
+  },
+  "additionalProperties": false
+}

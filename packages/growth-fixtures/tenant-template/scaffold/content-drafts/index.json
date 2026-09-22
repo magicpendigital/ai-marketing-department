@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "empty_draft_only_registry",
+  "isSynthetic": true,
+  "purpose": "Register concept and copy packages produced from an approved internal brief.",
+  "artifactKind": "concept_copy_package",
+  "artifacts": [],
+  "requiredFieldsForEachArtifact": [
+    "id",
+    "tenantId",
+    "briefId",
+    "version",
+    "artifactKind",
+    "status",
+    "lifecycleState",
+    "claimRefs",
+    "copy",
+    "visualBrief",
+    "destination",
+    "measurement",
+    "productionRecord",
+    "qa",
+    "approval",
+    "externalReadiness"
+  ],
+  "sprint01Limit": "All artifacts remain draft_internal or qa_pass_pending_human. The creator cannot approve an artifact or execute it externally.",
+  "externalAction": "forbidden"
+}

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "draft_only_template",
+  "isSynthetic": true,
+  "purpose": "Register sources that may inform internal research hypotheses without converting planning material into product claims.",
+  "sources": [
+    {
+      "id": "__TENANT_SLUG___approved_brand_guidance",
+      "type": "approved_brand_guidance",
+      "reference": "__PRIVATE_BRAND_GUIDANCE_REFERENCE__",
+      "allowedUse": "voice, visual boundary, and internal copy review",
+      "claimAuthority": "brand_only_not_product_evidence",
+      "reviewStatus": "not_reviewed"
+    },
+    {
+      "id": "__TENANT_SLUG___product_evidence_register",
+      "type": "internal_product_evidence",
+      "reference": "__PRIVATE_PRODUCT_EVIDENCE_REFERENCE__",
+      "allowedUse": "feature-gated hypothesis formation",
+      "claimAuthority": "requires_product_truth_review",
+      "reviewStatus": "not_reviewed"
+    },
+    {
+      "id": "__TENANT_SLUG___market_research_source",
+      "type": "licensed_or_public_market_research",
+      "reference": "__SOURCE_AND_LICENSE_REFERENCE__",
+      "allowedUse": "aggregate market hypothesis only",
+      "claimAuthority": "not_product_evidence",
+      "reviewStatus": "not_reviewed"
+    }
+  ],
+  "prohibitedInputs": [
+    "customer_identifier",
+    "contact_detail",
+    "private_conversation",
+    "private_journal_or_note",
+    "sensitive_profile_or_inference",
+    "uploaded_image",
+    "provider_or_oauth_secret",
+    "unlicensed_source_material"
+  ],
+  "externalAction": "forbidden"
+}

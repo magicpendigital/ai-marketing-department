@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0.0",
+  "readinessLayers": [
+    {
+      "id": "F1_framework_quality",
+      "meaning": "Internal workflow and quality controls are usable for draft production.",
+      "doesNotAuthorize": ["public_publish", "email_send", "paid_media", "product_claim"]
+    },
+    {
+      "id": "T1_tenant_product_truth",
+      "meaning": "A claim is true for a named business, feature, build, platform, locale and destination.",
+      "doesNotAuthorize": ["channel_execution", "paid_media"]
+    },
+    {
+      "id": "E1_public_material_candidate",
+      "meaning": "A specific asset has current ProductTruth and owner/editor/privacy approval.",
+      "doesNotAuthorize": ["publish_without_channel_authorization"]
+    },
+    {
+      "id": "E2_controlled_publish",
+      "meaning": "A named channel supports preflight, version-bound approval, receipt and rollback.",
+      "doesNotAuthorize": ["paid_media"]
+    },
+    {
+      "id": "E3_paid_media",
+      "meaning": "Paid execution has product evidence, consented attribution, approved budget/caps and a kill switch.",
+      "doesNotAuthorize": []
+    }
+  ],
+  "hardFailCodes": [
+    "claim_not_ready",
+    "claim_evidence_expired",
+    "deterministic_prediction",
+    "sensitive_advice_or_guarantee",
+    "persona_impersonation",
+    "unlicensed_or_unknown_rights",
+    "sensitive_data_leak",
+    "destination_or_provenance_missing",
+    "locale_or_accessibility_failure",
+    "cross_tenant_leak",
+    "approval_stale",
+    "duplicate_execution_intent"
+  ],
+  "softDimensions": [
+    "jtbd_audience_relevance",
+    "specific_differentiated_value",
+    "proof_claim_precision",
+    "brand_locale_editorial_quality",
+    "clarity_cta_destination_fit",
+    "platform_visual_accessibility_fit",
+    "trust_emotional_safety",
+    "experiment_measurement_quality",
+    "operational_traceability_reuse"
+  ],
+  "internalLibraryThreshold": {
+    "minimumDimensionScore": 3,
+    "minimumMeanScore": 3.25,
+    "hardFailuresAllowed": 0,
+    "requiredProvenanceComplete": true,
+    "maximumRepairCycles": 2
+  },
+  "approvalInvalidatingFields": ["copy", "visualBrief", "claimRefs", "destination", "targetChannel", "schedule", "budgetCap"]
+}

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0.0",
+  "mode": "draft_only",
+  "orchestrator": "growth_orchestrator",
+  "cells": [
+    {
+      "id": "readiness_cell",
+      "leadAgent": "product_truth_claim_guard",
+      "subagentTemplates": ["evidence_reference_checker", "identity_boundary_checker", "capability_matrix_checker"],
+      "inputs": ["brand_pack", "product_truth", "business_pack", "data_boundary"],
+      "output": "tenant_readiness_record",
+      "humanGate": "owner_accepts_product_truth"
+    },
+    {
+      "id": "research_cell",
+      "leadAgent": "research_jtbd",
+      "subagentTemplates": ["source_register_reviewer", "jtbd_synthesizer", "research_risk_checker"],
+      "inputs": ["approved_sources", "sanitized_research_summary"],
+      "output": "research_plan_and_jtbd_hypotheses",
+      "humanGate": "owner_accepts_research_scope"
+    },
+    {
+      "id": "content_cell",
+      "leadAgent": "content_studio",
+      "subagentTemplates": ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"],
+      "inputs": ["approved_brief", "brand_pack", "product_truth"],
+      "output": "concept_copy_package",
+      "humanGate": "editor_or_owner_decision"
+    },
+    {
+      "id": "quality_cell",
+      "leadAgent": "independent_qa",
+      "subagentTemplates": ["claim_evidence_linter", "safety_privacy_linter", "rights_and_locale_linter"],
+      "inputs": ["concept_copy_package", "quality_gates", "product_truth"],
+      "output": "qa_verdict_or_repair_request",
+      "humanGate": "human_review_for_external_candidate"
+    },
+    {
+      "id": "learning_cell",
+      "leadAgent": "journey_measurement",
+      "subagentTemplates": ["metric_denominator_checker", "aggregate_privacy_checker", "learning_hypothesis_synthesizer"],
+      "inputs": ["event_ownership_map", "aggregate_learning_export"],
+      "output": "learning_note_and_product_ticket_draft",
+      "humanGate": "product_owner_triage"
+    }
+  ],
+  "delegationRules": [
+    "Every subagent receives the minimum sanitized input required for its task.",
+    "Subagents may draft, check or summarize; they may not approve, publish, send, spend, access credentials or change a product.",
+    "A hard-fail result returns to the orchestrator and invalidates the current package version.",
+    "Cross-tenant work may use only approved aggregate LearningExport records."
+  ]
+}

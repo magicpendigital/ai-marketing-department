@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Growth Content Brief",
+  "type": "object",
+  "required": ["id", "tenantId", "hypothesis", "claimRefs", "formats", "destinationId", "primaryMetric", "guardrails"],
+  "properties": {
+    "id": { "type": "string" },
+    "tenantId": { "type": "string" },
+    "hypothesis": { "type": "string" },
+    "claimRefs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "formats": { "type": "array", "minItems": 1, "items": { "enum": ["static", "carousel", "short_video"] } },
+    "destinationId": { "type": "string" },
+    "primaryMetric": { "type": "string" },
+    "guardrails": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

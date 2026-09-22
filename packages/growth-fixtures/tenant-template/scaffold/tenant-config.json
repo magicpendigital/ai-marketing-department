@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0.0",
+  "tenantId": "__TENANT_SLUG__",
+  "status": "synthetic_onboarding_template",
+  "isSynthetic": true,
+  "purpose": "Onboard a fictional new AI business without copying configuration, data, assets, or authority from another tenant.",
+  "requiredBeforeWorkflow": [
+    "brand_pack",
+    "business_pack",
+    "product_truth",
+    "legal_and_claim_rules",
+    "consent_and_data_map",
+    "activation_event_definition",
+    "target_market_and_locale",
+    "channel_owner",
+    "approval_owner",
+    "hard_budget_cap",
+    "incident_contact"
+  ],
+  "dataPlane": {
+    "backend": "separate_project_required",
+    "analytics": "separate_property_required",
+    "senderDomain": "separate_domain_required",
+    "credentials": "separate_secret_store_required"
+  },
+  "identityBoundary": {
+    "ownBrandTokens": [
+      "__TENANT_BRAND_TOKEN__"
+    ],
+    "knownForeignBrandTokens": [
+      "__ISOLATION_TEST_SENTINEL__"
+    ],
+    "requiredBeforeActivation": "Replace ownBrandTokens with reviewed tenant identity. knownForeignBrandTokens is a non-production isolation-test sentinel, not a real foreign-tenant identity token."
+  },
+  "crossTenantRules": [
+    "No other tenant brand, ProductTruth, source, asset, destination, credential, approval, receipt, or prompt may be read or reused.",
+    "Only approved de-identified aggregate LearningExport records may be compared across tenants.",
+    "A shared database plus a tenant_id column is not accepted for this pilot."
+  ],
+  "sprint01Restriction": "draft_only_no_external_action"
+}

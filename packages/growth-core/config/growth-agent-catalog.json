@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0.0",
+  "catalogId": "growth_agent_catalog",
+  "mode": "draft_only",
+  "forbiddenDataClasses": [
+    "raw_private_chat",
+    "raw_journal_entry",
+    "birth_profile",
+    "raw_chart",
+    "face_upload",
+    "email_or_phone",
+    "provider_secret",
+    "service_role_key",
+    "sensitive_inference"
+  ],
+  "agents": [
+    {
+      "id": "growth_orchestrator",
+      "purpose": "Coordinate bounded jobs, gates and learning notes without external execution.",
+      "requiredCapability": "workflow_orchestration",
+      "allowedDataClasses": ["sanitized_tenant_config", "aggregate_metrics", "public_research"],
+      "humanGate": "required_for_scope_or_priority_change",
+      "stopCondition": "Stop before execution, credential access, private data, budget or product changes."
+    },
+    {
+      "id": "research_jtbd",
+      "purpose": "Turn approved public sources and consented research summaries into bounded audience hypotheses.",
+      "requiredCapability": "content_research",
+      "allowedDataClasses": ["public_research", "sanitized_research_summary"],
+      "humanGate": "required_for_outreach_or_market_claim",
+      "stopCondition": "Stop before contacting people or inferring sensitive traits."
+    },
+    {
+      "id": "product_truth_claim_guard",
+      "purpose": "Resolve feature/build evidence and allow or block a claim by surface.",
+      "requiredCapability": "product_management",
+      "allowedDataClasses": ["sanitized_tenant_config", "release_evidence_reference"],
+      "humanGate": "required_for_new_or_overridden_claim",
+      "stopCondition": "Block a claim without current evidence, provenance or owner."
+    },
+    {
+      "id": "positioning_experiment",
+      "purpose": "Create evidence-bounded positioning hypotheses and experiment briefs.",
+      "requiredCapability": "product_management",
+      "allowedDataClasses": ["public_research", "sanitized_tenant_config", "aggregate_metrics"],
+      "humanGate": "required_for_offer_or_audience_change",
+      "stopCondition": "Do not select an external audience or promise without approval."
+    },
+    {
+      "id": "content_studio",
+      "purpose": "Create versioned asset drafts in the tenant's required locales from an approved brief and ProductTruth references.",
+      "requiredCapability": "content_authoring",
+      "allowedDataClasses": ["sanitized_tenant_config", "licensed_or_approved_asset_reference"],
+      "humanGate": "required_before_external_candidate",
+      "stopCondition": "Return draft only; do not self-approve or use unlicensed text/assets."
+    },
+    {
+      "id": "independent_qa",
+      "purpose": "Check claim, brand, safety, privacy, IP, locale and operational traceability independently of the creator.",
+      "requiredCapability": "quality_assurance",
+      "allowedDataClasses": ["sanitized_tenant_config", "asset_draft", "public_policy_source"],
+      "humanGate": "required_for_override_or_external_approval",
+      "stopCondition": "Block hard failures and escalate uncertain evidence."
+    },
+    {
+      "id": "distribution_planner",
+      "purpose": "Prepare channel-specific packages and preflight checklists without publishing.",
+      "requiredCapability": "design_operations",
+      "allowedDataClasses": ["approved_asset_draft", "sanitized_channel_capability"],
+      "humanGate": "required_for_every_execution",
+      "stopCondition": "Stop before OAuth, scheduling, posting, sending or receiving a channel receipt."
+    },
+    {
+      "id": "journey_measurement",
+      "purpose": "Define privacy-safe funnel metrics and produce aggregate learning notes.",
+      "requiredCapability": "measurement_analysis",
+      "allowedDataClasses": ["aggregate_metrics", "sanitized_tenant_config"],
+      "humanGate": "required_for_metric_definition_change_or_product_ticket",
+      "stopCondition": "Do not collect, export or infer individual-level sensitive behavior."
+    }
+  ]
+}

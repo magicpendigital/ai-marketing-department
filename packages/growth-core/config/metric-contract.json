@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0.0",
+  "metricDefinitionVersion": "growth-metrics-v1",
+  "primaryMetrics": [
+    {
+      "id": "valuable_activation_rate",
+      "definition": "Eligible cohort members who complete onboarding, view a real result, and explicitly record usefulness or complete a defined reflection action divided by eligible cohort members.",
+      "notEquivalentTo": ["generation_completed", "screen_opened", "model_score"]
+    },
+    {
+      "id": "repeat_value_days_7d",
+      "definition": "Eligible cohort members with a valid value signal on at least two distinct days in seven days divided by eligible cohort members.",
+      "notEquivalentTo": ["notification_open", "background_session"]
+    },
+    {
+      "id": "cost_per_retained_activated_user",
+      "definition": "Allocated media, creative, AI and human operating cost divided by users satisfying the agreed valuable-activation and return definition.",
+      "availability": "paid_pilot_only"
+    }
+  ],
+  "guardrails": [
+    "claim_hard_fail",
+    "privacy_incident",
+    "duplicate_send_or_execution",
+    "tracking_mismatch",
+    "onboarding_error",
+    "complaint_or_opt_out",
+    "platform_policy_rejection"
+  ],
+  "allowedMarketingDimensions": ["aggregate_count", "consented_cohort_alias", "campaign_id", "source", "medium", "content", "build_version", "feature_version"],
+  "forbiddenMarketingDimensions": ["email", "phone", "raw_chat", "raw_journal", "birth_data", "raw_chart", "tarot_card", "face_upload", "sensitive_inference"]
+}

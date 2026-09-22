@@ -1,0 +1,22 @@
+{
+  "name": "growth-framework",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "validate": "node scripts/validate-growth-framework.mjs",
+    "test": "node --test scripts/growth-framework.test.mjs scripts/growth-tenant-onboarding.test.mjs scripts/growth-tenant-artifacts.test.mjs scripts/growth-job-preparation.test.mjs scripts/growth-two-tenant-demo.test.mjs scripts/growth-tenant-learning-export.test.mjs",
+    "tenant:init": "node scripts/init-growth-tenant.mjs",
+    "tenant:validate": "node scripts/validate-growth-tenant.mjs",
+    "tenant:demo:validate": "node scripts/validate-growth-tenant-demo.mjs",
+    "tenant:artifact:validate": "node scripts/validate-growth-tenant-artifacts.mjs",
+    "tenant:job:prepare": "node scripts/prepare-growth-job.mjs",
+    "tenant:two:validate": "node scripts/growth-two-tenant-demo.mjs",
+    "tenant:learning:validate": "node scripts/validate-growth-tenant-learning-export.mjs",
+    "tenant:learning:compare": "node scripts/compare-growth-tenant-learning-exports.mjs",
+    "tenant:learning:demo": "node scripts/growth-tenant-learning-demo.mjs"
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "schemaVersion": "1.0.0",
+  "fixtureSetId": "growth_sprint_01_adversarial_v1",
+  "isSynthetic": true,
+  "fixtures": [
+    {
+      "id": "F01_astrology_accuracy_before_evidence",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "public_organic",
+        "claimStatus": "preparation_only",
+        "text": "Nhận bản đồ sao chính xác cao ngay hôm nay.",
+        "hasVi": true,
+        "hasEn": true
+      },
+      "expectedBlockCodes": ["claim_not_ready"]
+    },
+    {
+      "id": "F02_deterministic_tarot",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "Tarot biết chắc người ấy sẽ quay lại.",
+        "hasVi": true,
+        "hasEn": true
+      },
+      "expectedBlockCodes": ["deterministic_prediction"]
+    },
+    {
+      "id": "F03_sensitive_advice",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "Công cụ này chữa anxiety và cho bạn lời khuyên tài chính.",
+        "hasVi": true,
+        "hasEn": true
+      },
+      "expectedBlockCodes": ["sensitive_advice_or_guarantee"]
+    },
+    {
+      "id": "F04_persona_impersonation",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "Nói chuyện với Aristotle thật, chuyên gia chính thức của chúng tôi.",
+        "hasVi": true,
+        "hasEn": true
+      },
+      "expectedBlockCodes": ["persona_impersonation"]
+    },
+    {
+      "id": "F05_unknown_rights",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "Một đoạn trích và ảnh từ nguồn chưa rõ quyền sử dụng.",
+        "hasVi": true,
+        "hasEn": true,
+        "rightsStatus": "unknown"
+      },
+      "expectedBlockCodes": ["unlicensed_or_unknown_rights"]
+    },
+    {
+      "id": "F06_false_screenshot",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "public_organic",
+        "claimStatus": "released",
+        "text": "Ảnh app đã phát hành.",
+        "hasVi": true,
+        "hasEn": true,
+        "provenanceStatus": "missing"
+      },
+      "expectedBlockCodes": ["destination_or_provenance_missing"]
+    },
+    {
+      "id": "F07_broken_destination",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "public_organic",
+        "claimStatus": "released",
+        "text": "Mở trải nghiệm ngay.",
+        "hasVi": true,
+        "hasEn": true,
+        "destinationWorking": false
+      },
+      "expectedBlockCodes": ["destination_or_provenance_missing"]
+    },
+    {
+      "id": "F08_sensitive_data_leak",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "Ngày sinh 03/02/2001 và đoạn chat riêng tư của bạn nói rằng...",
+        "hasVi": true,
+        "hasEn": true,
+        "containsSensitiveData": true
+      },
+      "expectedBlockCodes": ["sensitive_data_leak"]
+    },
+    {
+      "id": "F09_sensitive_targeting",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "paid",
+        "claimStatus": "released",
+        "text": "Target phụ nữ vừa chia tay theo dữ liệu Tarot.",
+        "hasVi": true,
+        "hasEn": true,
+        "sensitiveTargeting": true
+      },
+      "expectedBlockCodes": ["sensitive_data_leak"]
+    },
+    {
+      "id": "F10_localization_promise_drift",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "Reflect becomes a guarantee to heal every wound.",
+        "hasVi": true,
+        "hasEn": false
+      },
+      "expectedBlockCodes": ["sensitive_advice_or_guarantee", "locale_or_accessibility_failure"]
+    },
+    {
+      "id": "F11_unverified_commercial_proof",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "public_organic",
+        "claimStatus": "released",
+        "text": "Ra mắt ngày mai, giá chỉ 9 đô và đã có hàng nghìn người yêu thích.",
+        "hasVi": true,
+        "hasEn": true,
+        "unsupportedCommercialClaim": true
+      },
+      "expectedBlockCodes": ["claim_not_ready"]
+    },
+    {
+      "id": "F12_accessibility_failure",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "Gold chữ nhỏ trên nền sáng, không có alt text.",
+        "hasVi": true,
+        "hasEn": true,
+        "accessibilityIssue": true
+      },
+      "expectedBlockCodes": ["locale_or_accessibility_failure"]
+    },
+    {
+      "id": "F13_expired_evidence",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "public_organic",
+        "claimStatus": "released",
+        "text": "Feature đã được xác minh.",
+        "hasVi": true,
+        "hasEn": true,
+        "evidenceExpired": true
+      },
+      "expectedBlockCodes": ["claim_evidence_expired"]
+    },
+    {
+      "id": "F14_stale_approval",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "public_organic",
+        "claimStatus": "released",
+        "text": "Caption đã đổi sau khi duyệt.",
+        "hasVi": true,
+        "hasEn": true,
+        "approvalStale": true
+      },
+      "expectedBlockCodes": ["approval_stale"]
+    },
+    {
+      "id": "F15_duplicate_execution",
+      "candidate": {
+        "tenantId": "tenant-a",
+        "surface": "private_channel_test",
+        "claimStatus": "released",
+        "text": "Retry đã tạo ý định publish thứ hai.",
+        "hasVi": true,
+        "hasEn": true,
+        "duplicateExecutionIntent": true
+      },
+      "expectedBlockCodes": ["duplicate_execution_intent"]
+    },
+    {
+      "id": "F16_cross_tenant_brand_leak",
+      "candidate": {
+        "tenantId": "ai-business-template",
+        "surface": "internal_draft",
+        "claimStatus": "internal_only",
+        "text": "FOREIGN_TENANT_BRAND là câu trả lời cho business thứ hai.",
+        "hasVi": true,
+        "hasEn": true,
+        "knownForeignBrandTokens": ["FOREIGN_TENANT_BRAND"]
+      },
+      "expectedBlockCodes": ["cross_tenant_leak"]
+    },
+    {
+      "id": "F17_sensitive_targeting_from_copy_text",
+      "candidate": {
+        "tenantId": "tenant-b",
+        "surface": "paid",
+        "claimStatus": "released",
+        "text": "Target people with depression, religious belief, or a recent breakup for this paid creative.",
+        "hasVi": true,
+        "hasEn": true
+      },
+      "expectedBlockCodes": ["sensitive_data_leak"]
+    }
+  ]
+}
