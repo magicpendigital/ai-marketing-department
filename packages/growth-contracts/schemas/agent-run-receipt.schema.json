@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-marketing-department.local/schemas/agent-run-receipt.schema.json",
+  "title": "Growth Canvas Coding Agent run receipt",
+  "description": "A lead-agent receipt returned after bounded internal work. It is not an independent QA verdict and cannot authorize owner review by itself.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "tenantId",
+    "workflowId",
+    "attemptId",
+    "agentRole",
+    "outcome",
+    "startedAt",
+    "finishedAt",
+    "artifactReferences",
+    "qualityGateStatus",
+    "handoffMode",
+    "externalActionAuthority"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "jobId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "workflowId": { "const": "W2_content_factory" },
+    "attemptId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "agentRole": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "outcome": { "enum": ["completed_for_review", "revision_required", "blocked", "failed", "cancelled"] },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "artifactReferences": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9][A-Za-z0-9._/-]*$" }
+    },
+    "qualityGateStatus": { "const": "not_run", "description": "Informational lead-agent field only. Independent QA authority is stored in independent-qa-verdict.schema.json." },
+    "handoffMode": { "const": "manual_coding_agent" },
+    "notes": { "type": "string", "maxLength": 4000 },
+    "externalActionAuthority": {
+      "type": "object",
+      "required": ["publish", "send", "schedule", "createCampaign", "uploadAudience", "spend"],
+      "properties": {
+        "publish": { "const": false },
+        "send": { "const": false },
+        "schedule": { "const": false },
+        "createCampaign": { "const": false },
+        "uploadAudience": { "const": false },
+        "spend": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

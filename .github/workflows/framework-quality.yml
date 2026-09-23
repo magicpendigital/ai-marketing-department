@@ -22,11 +22,17 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install locked dependencies
+        run: npm ci
+
       - name: Validate portable framework
         run: npm run validate
 
       - name: Run framework tests
         run: npm test
+
+      - name: Build and test Local Canvas
+        run: npm run canvas:test && npm run canvas:build
 
       - name: Validate synthetic tenant demo
         run: npm run tenant:demo:validate

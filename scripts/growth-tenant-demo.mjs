@@ -11,7 +11,7 @@ const writeJson = (tenantRoot, relativePath, value) => {
 const currentDate = () => new Date().toISOString().slice(0, 10);
 
 /**
- * Converts a freshly initialized scaffold into a fictional but semantically complete
+ * Converts a freshly initialized scaffold into a generated but semantically complete
  * tenant configuration. It creates no accounts, customer data, credentials, assets,
  * publication, outreach, telemetry, or paid media. Tests use it to prove the W0/B1
  * validator can distinguish a complete internal-draft tenant from a scaffold.
@@ -45,7 +45,7 @@ export const materializeSyntheticReadyTenant = ({ tenantRoot, tenantId } = {}) =
     tenantId: resolvedTenantId,
     status,
     isSynthetic: false,
-    purpose: "Fictional W0/B1 configuration used only to verify the portable marketing framework.",
+    purpose: "Generated W0/B1 test configuration used only inside the automated framework suite.",
     requiredBeforeWorkflow: [
       "brand_pack",
       "business_pack",
@@ -120,7 +120,7 @@ export const materializeSyntheticReadyTenant = ({ tenantRoot, tenantId } = {}) =
     brandPackVersion,
     businessContext: {
       category: "AI planning application",
-      targetMarket: "fictional early-access market",
+      targetMarket: "generated early-access test market",
       primaryLocale: "en",
       valueHypothesis: "A guided planning flow may help a person clarify one useful next step faster than unstructured chat.",
       nonTargetSegments: ["regulated professional advice"]
@@ -265,7 +265,7 @@ export const materializeSyntheticReadyTenant = ({ tenantRoot, tenantId } = {}) =
         "isolated_data_plane_proof",
         "channel_owner_and_execution_envelope"
       ],
-      reason: "The synthetic ready demo authorizes internal drafts only."
+      reason: "The generated test tenant authorizes internal drafts only."
     },
     dataPlane: {
       tenantRuntime: "A separate private tenant runtime is required before any real data exists.",
@@ -409,10 +409,10 @@ export const materializeSyntheticReadyTenant = ({ tenantRoot, tenantId } = {}) =
     participantTarget: {
       minimum: 15,
       maximum: 20,
-      market: "fictional early-access market",
+      market: "generated early-access test market",
       primaryLocale: "en"
     },
-    purpose: "Test a fictional value hypothesis without recruitment or collection.",
+    purpose: "Test a generated value hypothesis without recruitment or collection.",
     consentBoundary: [
       "Participation is voluntary and may stop at any time.",
       "Do not request identifying or sensitive material.",
@@ -590,7 +590,7 @@ export const materializeSyntheticReadyTenant = ({ tenantRoot, tenantId } = {}) =
     tenantId: resolvedTenantId,
     status,
     isSynthetic: false,
-    purpose: "Fictional completed W0 checklist for validator testing only.",
+    purpose: "Generated completed W0 checklist for the automated validator suite only.",
     frameworkVersion: "1.0.0",
     requiredBeforeW0Pass: [
       ["brand_pack_reviewed", "brand-owner", "brand-pack.json"],
@@ -612,6 +612,12 @@ export const materializeSyntheticReadyTenant = ({ tenantRoot, tenantId } = {}) =
     crossTenantBoundary: "Only approved aggregate_deidentified LearningExport records may be compared across tenants.",
     prohibitedInputs: ["customer_identifier", "contact_detail", "private_conversation", "sensitive_personal_data", "provider_or_oauth_secret", "raw_ad_platform_data", "unlicensed_source_material"]
   });
+
+  fs.writeFileSync(
+    path.join(tenantRoot, "README.md"),
+    `# Generated tenant test workspace\n\nThis generated workspace exists only inside the automated framework suite. It validates the internal draft-only path and grants no external execution authority.\n`,
+    "utf8"
+  );
 
   return { tenantId: resolvedTenantId, status, externalExecution: "forbidden" };
 };

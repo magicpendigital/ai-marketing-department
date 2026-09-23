@@ -72,6 +72,7 @@ const readyStatus = "ready_for_internal_drafts";
 const allowedInternalClaimSurfaces = new Set(["internal_draft_only", "draft_internal", "qa_pass_pending_human"]);
 const placeholderPattern = /__[A-Z0-9][A-Z0-9_]*__/;
 const placeholderGlobalPattern = /__[A-Z0-9][A-Z0-9_]*__/g;
+const fixtureOnlyLanguagePattern = /\bfictional\b|synthetic ready demo|validator testing only/i;
 const tenantSlugPattern = /^[a-z][a-z0-9-]{1,62}$/;
 const credentialPattern = /(?:\b(?:sk|pk|rk|ghp)_[a-z0-9_-]{12,}\b|(?:api[_-]?key|authorization|bearer|access[_-]?token|secret|password)\s*[:=]\s*["']?[a-z0-9._-]{8,})/i;
 
@@ -588,7 +589,7 @@ const validateRiskAndManifest = (artifacts, collector, allowIncomplete) => {
   requireReady(collector, allowIncomplete, /no external action/i.test(manifest.sprint01Restriction || "") && /aggregate_deidentified/i.test(manifest.crossTenantBoundary || ""), "onboarding-manifest.json must preserve the Sprint 01 no-external-action and aggregate-only cross-tenant boundaries.");
 };
 
-const validateReadinessMarkers = (artifacts, collector, allowIncomplete) => {
+const validateReadinessMarkers = (artifacts, collector, allowIncomplete, readme = "") => {
   const placeholderLocations = [];
   for (const [relativePath, artifact] of Object.entries(artifacts)) {
     placeholderLocations.push(...containsPlaceholder(artifact.value).map((location) => `${relativePath}.${location}`));
@@ -596,6 +597,18 @@ const validateReadinessMarkers = (artifacts, collector, allowIncomplete) => {
   requireReady(collector, allowIncomplete, placeholderLocations.length === 0, `Replace all scaffold placeholders before W0. Found: ${placeholderLocations.slice(0, 5).join("; ")}${placeholderLocations.length > 5 ? `; and ${placeholderLocations.length - 5} more` : ""}`);
   for (const [relativePath, artifact] of Object.entries(artifacts)) {
     requireReady(collector, allowIncomplete, artifact.value.isSynthetic === false, `${relativePath}.isSynthetic must be false after the real tenant artifact is reviewed.`);
+  }
+  if (artifacts["tenant-config.json"]?.value?.isSynthetic === false) {
+    const fixtureOnlyFiles = Object.entries(artifacts)
+      .filter(([, artifact]) => fixtureOnlyLanguagePattern.test(artifact.raw))
+      .map(([relativePath]) => relativePath);
+    if (fixtureOnlyLanguagePattern.test(readme)) fixtureOnlyFiles.push("README.md");
+    requireReady(
+      collector,
+      allowIncomplete,
+      fixtureOnlyFiles.length === 0,
+      `A real tenant may not retain fixture-only language. Replace it before W0. Found in: ${fixtureOnlyFiles.join(", ")}`
+    );
   }
 };
 
@@ -647,7 +660,7 @@ export const validateGrowthTenant = (tenantRoot, { allowIncomplete = false } = {
   validateIdentityBoundary(artifacts, collector, allowIncomplete);
   validateDataPlane(artifacts, collector, allowIncomplete);
   validateConsentAndChannelBoundary(artifacts, collector, allowIncomplete);
-  validateReadinessMarkers(artifacts, collector, allowIncomplete);
+  validateReadinessMarkers(artifacts, collector, allowIncomplete, readme || "");
   validateBrandAndBusiness(artifacts, collector, allowIncomplete);
   validateRoleMapping(artifacts, collector, allowIncomplete);
   validateProductTruth(artifacts, collector, allowIncomplete);

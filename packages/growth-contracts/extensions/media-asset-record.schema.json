@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/growth-contracts/extensions/media-asset-record.schema.json",
+  "title": "Media Asset Evidence Record",
+  "description": "An immutable-version record that binds media files to source policy, capture evidence, edit history, rights, QA, approval, and a separate publishing gate.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "assetId",
+    "tenantId",
+    "requestRef",
+    "version",
+    "status",
+    "mediaKind",
+    "sourceMode",
+    "policySnapshot",
+    "sourceFiles",
+    "captureEvidence",
+    "editLog",
+    "rightsEvidence",
+    "accessibility",
+    "technicalQa",
+    "contentQa",
+    "approvals",
+    "externalReadiness",
+    "audit"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "0.1.0-incubating" },
+    "assetId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "requestRef": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "status": { "enum": ["ingested", "qa_pending", "repair_required", "qa_pass_pending_decision", "approved_internal", "blocked", "invalidated"] },
+    "mediaKind": { "enum": ["image", "video", "audio"] },
+    "sourceMode": {
+      "enum": [
+        "real_capture",
+        "tenant_owned_existing",
+        "licensed_existing",
+        "commissioned_human_production",
+        "generated_ai",
+        "hybrid_real_and_generated"
+      ]
+    },
+    "policySnapshot": {
+      "type": "object",
+      "required": ["requestVersion", "requiredOrigin", "generativeAiPolicy", "actualGenerativeAiUse", "syntheticIdentityMedia"],
+      "properties": {
+        "requestVersion": { "type": "string" },
+        "requiredOrigin": {
+          "enum": [
+            "real_capture_only",
+            "owned_or_commissioned_real_media",
+            "owned_or_licensed_non_generated_media",
+            "any_approved_non_generated_media",
+            "generation_permitted"
+          ]
+        },
+        "generativeAiPolicy": {
+          "enum": [
+            "forbidden",
+            "planning_only_no_media_synthesis",
+            "non_identity_generation_allowed",
+            "allowed_with_disclosure_and_owner_review"
+          ]
+        },
+        "actualGenerativeAiUse": { "type": "boolean" },
+        "syntheticIdentityMedia": { "const": "not_used" }
+      },
+      "additionalProperties": false
+    },
+    "sourceFiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["fileRef", "sha256", "bytes", "mimeType", "role", "ingestedAt", "metadataDisposition"],
+        "properties": {
+          "fileRef": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "mimeType": { "type": "string", "minLength": 1 },
+          "role": { "enum": ["camera_original", "audio_original", "edit_master", "review_proxy", "caption_file", "thumbnail"] },
+          "ingestedAt": { "type": "string", "format": "date-time" },
+          "metadataDisposition": { "enum": ["sensitive_metadata_stripped", "reviewed_metadata_retained"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "captureEvidence": {
+      "type": ["object", "null"],
+      "properties": {
+        "captureBriefRef": { "type": "string" },
+        "completedShotIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "captureWindow": { "type": "string" },
+        "productStateEvidenceRef": { "type": "string" },
+        "locationEvidenceRef": { "type": ["string", "null"] },
+        "captureOperatorRole": { "type": "string" },
+        "rawGpsStored": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "editLog": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["operation", "class", "performedByRole", "performedAt", "inputHash", "outputHash"],
+        "properties": {
+          "operation": { "type": "string" },
+          "class": { "enum": ["non_generative", "generative", "administrative"] },
+          "performedByRole": { "type": "string" },
+          "performedAt": { "type": "string", "format": "date-time" },
+          "inputHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "outputHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "toolRef": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "rightsEvidence": {
+      "type": "object",
+      "required": ["ownershipBasis", "evidenceRefs", "releases", "territories", "channels", "validFrom", "validUntil", "commercialUse", "status", "reviewerRole"],
+      "properties": {
+        "ownershipBasis": { "enum": ["tenant_owned", "commissioned_work_for_hire", "licensed", "mixed"] },
+        "evidenceRefs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["category", "releaseRef", "scope", "status", "validUntil"],
+            "properties": {
+              "category": { "enum": ["person", "location", "property_or_trademark", "music_or_audio"] },
+              "releaseRef": { "type": "string" },
+              "scope": { "type": "string" },
+              "status": { "enum": ["approved", "not_applicable", "expired", "revoked", "blocked"] },
+              "validUntil": { "type": ["string", "null"], "format": "date" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "territories": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "channels": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "validFrom": { "type": "string", "format": "date" },
+        "validUntil": { "type": ["string", "null"], "format": "date" },
+        "commercialUse": { "type": "boolean" },
+        "status": { "enum": ["pending", "approved", "expired", "revoked", "blocked"] },
+        "reviewerRole": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "accessibility": {
+      "type": "object",
+      "required": ["altTextByLocale", "captions", "transcript", "flashingContentCheck", "status"],
+      "properties": {
+        "altTextByLocale": { "type": "object", "additionalProperties": { "type": "string" } },
+        "captions": { "enum": ["provided", "not_applicable", "missing"] },
+        "transcript": { "enum": ["provided", "not_applicable", "missing"] },
+        "flashingContentCheck": { "enum": ["pass", "not_applicable", "fail"] },
+        "status": { "enum": ["pass", "pending", "fail"] }
+      },
+      "additionalProperties": false
+    },
+    "technicalQa": {
+      "type": "object",
+      "required": ["status", "checks", "reviewerRole", "reviewedAt"],
+      "properties": {
+        "status": { "enum": ["not_run", "pass", "repair_required", "blocked"] },
+        "checks": { "type": "array", "items": { "type": "string" } },
+        "reviewerRole": { "type": "string" },
+        "reviewedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "contentQa": {
+      "type": "object",
+      "required": ["status", "hardFailureCodes", "authenticityVerified", "brandVerified", "claimsVerified", "reviewerRole", "reviewedAt"],
+      "properties": {
+        "status": { "enum": ["not_run", "pass", "repair_required", "blocked"] },
+        "hardFailureCodes": { "type": "array", "items": { "type": "string" } },
+        "authenticityVerified": { "type": "boolean" },
+        "brandVerified": { "type": "boolean" },
+        "claimsVerified": { "type": "boolean" },
+        "reviewerRole": { "type": "string" },
+        "reviewedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "approvals": {
+      "type": "object",
+      "required": ["manifestHash", "editorial", "rights", "media", "approvalInvalidatedBy"],
+      "properties": {
+        "manifestHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "editorial": { "$ref": "#/$defs/approval" },
+        "rights": { "$ref": "#/$defs/approval" },
+        "media": { "$ref": "#/$defs/approval" },
+        "approvalInvalidatedBy": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "externalReadiness": {
+      "type": "object",
+      "required": ["status", "blockingGates", "executionEnvelopeRef", "externalAction"],
+      "properties": {
+        "status": { "enum": ["blocked", "eligible_for_separate_execution_review"] },
+        "blockingGates": { "type": "array", "items": { "type": "string" } },
+        "executionEnvelopeRef": { "type": ["string", "null"] },
+        "externalAction": { "const": "not_authorized_by_this_record" }
+      },
+      "additionalProperties": false
+    },
+    "audit": {
+      "type": "object",
+      "required": ["createdAt", "createdByRole", "eventChainRef", "supersedesAssetVersion"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdByRole": { "type": "string" },
+        "eventChainRef": { "type": "string" },
+        "supersedesAssetVersion": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "approval": {
+      "type": "object",
+      "required": ["status", "reviewerRole", "reviewedAt", "reasonCode"],
+      "properties": {
+        "status": { "enum": ["pending", "approved", "rejected", "expired", "invalidated"] },
+        "reviewerRole": { "type": "string" },
+        "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+        "reasonCode": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "policySnapshot": {
+            "properties": {
+              "requiredOrigin": {
+                "enum": [
+                  "real_capture_only",
+                  "owned_or_commissioned_real_media",
+                  "owned_or_licensed_non_generated_media",
+                  "any_approved_non_generated_media"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sourceMode": {
+            "enum": [
+              "real_capture",
+              "tenant_owned_existing",
+              "licensed_existing",
+              "commissioned_human_production"
+            ]
+          },
+          "policySnapshot": {
+            "properties": {
+              "generativeAiPolicy": {
+                "enum": ["forbidden", "planning_only_no_media_synthesis"]
+              },
+              "actualGenerativeAiUse": { "const": false }
+            }
+          },
+          "editLog": {
+            "items": {
+              "properties": {
+                "class": { "enum": ["non_generative", "administrative"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "policySnapshot": {
+            "properties": { "requiredOrigin": { "const": "real_capture_only" } }
+          }
+        }
+      },
+      "then": {
+        "properties": { "sourceMode": { "const": "real_capture" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "policySnapshot": {
+            "properties": { "requiredOrigin": { "const": "owned_or_commissioned_real_media" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sourceMode": {
+            "enum": ["tenant_owned_existing", "commissioned_human_production"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "policySnapshot": {
+            "properties": { "requiredOrigin": { "const": "owned_or_licensed_non_generated_media" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sourceMode": {
+            "enum": ["tenant_owned_existing", "licensed_existing"]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "sourceMode": { "const": "real_capture" } } },
+      "then": {
+        "properties": {
+          "policySnapshot": {
+            "properties": { "actualGenerativeAiUse": { "const": false } }
+          },
+          "editLog": {
+            "items": { "properties": { "class": { "enum": ["non_generative", "administrative"] } } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "policySnapshot": {
+            "properties": { "generativeAiPolicy": { "const": "forbidden" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "policySnapshot": { "properties": { "actualGenerativeAiUse": { "const": false } } },
+          "editLog": { "items": { "properties": { "class": { "enum": ["non_generative", "administrative"] } } } }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

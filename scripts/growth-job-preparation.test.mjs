@@ -33,6 +33,10 @@ test("a ready tenant can prepare a bounded internal content job without invoking
     assert.equal(job.mode, "draft_only");
     assert.equal(job.outputArtifactType, "concept_copy_package");
     assert.equal(job.adapterMode, "disabled");
+    assert.equal(job.lifecycleState, "prepared");
+    assert.equal(job.handoff.transport, "none");
+    assert.equal(job.promptVersion, "owner_configured_required");
+    assert.deepEqual(job.requiredNextSteps, ["redact_and_store_internal_draft", "run_deterministic_lint", "run_independent_qa", "await_human_decision"]);
     assert.ok(fs.existsSync(outputPath));
     assert.match(job.hardStop, /cannot invoke a provider/i);
     const rootOutputPath = path.join(tenantRoot, "root-draft-001.json");
@@ -44,6 +48,77 @@ test("a ready tenant can prepare a bounded internal content job without invoking
       adapterMode: "disabled"
     });
     assert.ok(fs.existsSync(rootOutputPath));
+  });
+});
+
+test("coding-agent handoff creates a provider-neutral work order without requesting a key or promising headless authentication", () => {
+  withReadyTenant((tenantRoot) => {
+    const outputPath = path.join(tenantRoot, "jobs", "coding-agent-content-001.json");
+    const job = prepareGrowthJob({
+      tenantRoot,
+      workflowId: "W2_content_factory",
+      outputPath,
+      jobId: "coding-agent-content-001",
+      adapterMode: "coding_agent_handoff"
+    });
+
+    assert.equal(job.workOrderVersion, "1.0.0");
+    assert.equal(job.lifecycleState, "prepared");
+    assert.equal(job.requestedCapability, "content_authoring");
+    assert.equal(job.assignedAgentRole, "content_studio");
+    assert.deepEqual(job.subagentTemplateIds, ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"]);
+    assert.equal(job.managerReview.decisionRequired, "editor_or_owner_decision");
+    assert.ok(job.managerReview.checklist.length >= 4);
+    assert.equal(job.promptVersion, "repository_instructions_and_skill_contract_1");
+    assert.equal(job.handoff.adapterMode, "coding_agent_handoff");
+    assert.equal(job.handoff.transport, "tenant_scoped_json_work_order");
+    assert.equal(job.handoff.requiresUserInitiation, true);
+    assert.equal(job.handoff.credentialPolicy, "framework_accepts_no_provider_credentials");
+    assert.equal(job.handoff.headlessAuthentication, "not_implemented_or_promised");
+    assert.match(job.handoff.nextAction, /user-authorized Coding Agent session/i);
+    assert.match(job.handoff.nextAction, /does not log in or operate the subscription headlessly/i);
+    assert.deepEqual(job.requiredNextSteps.slice(0, 3), ["make_work_order_available_for_handoff", "user_initiates_coding_agent_session", "coding_agent_claims_job"]);
+
+    const persisted = fs.readFileSync(outputPath, "utf8");
+    assert.deepEqual(JSON.parse(persisted), job);
+    assert.doesNotMatch(persisted, /provider_api_key|oauth_token|subscription_token/i);
+  });
+});
+
+test("work-order role, subagent and manager-review metadata are defined for every supported workflow", () => {
+  withReadyTenant((tenantRoot) => {
+    const workflows = ["W0_readiness", "W1_research_to_plan", "W2_content_factory", "W6_learning_to_product"];
+    workflows.forEach((workflowId, index) => {
+      const jobId = `workflow-metadata-${index + 1}`;
+      const job = prepareGrowthJob({
+        tenantRoot,
+        workflowId,
+        outputPath: path.join(tenantRoot, "jobs", `${jobId}.json`),
+        jobId,
+        adapterMode: "coding_agent_handoff"
+      });
+      assert.ok(job.requestedCapability.length > 0);
+      assert.ok(job.assignedAgentRole.length > 0);
+      assert.ok(job.subagentTemplateIds.length >= 3);
+      assert.ok(job.taskDescription.length > 40);
+      assert.ok(job.managerReview.decisionRequired.length > 0);
+      assert.ok(job.managerReview.checklist.length >= 4);
+    });
+  });
+});
+
+test("job preparation rejects an unknown adapter without weakening supported legacy modes", () => {
+  withReadyTenant((tenantRoot) => {
+    assert.throws(
+      () => prepareGrowthJob({ tenantRoot, workflowId: "W2_content_factory", outputPath: path.join(tenantRoot, "jobs", "bad-adapter.json"), jobId: "bad-adapter", adapterMode: "automatic_subscription_login" }),
+      /disabled, mock, owner_configured, or coding_agent_handoff/i
+    );
+    for (const [index, adapterMode] of ["disabled", "mock", "owner_configured"].entries()) {
+      const jobId = `legacy-adapter-${index + 1}`;
+      const job = prepareGrowthJob({ tenantRoot, workflowId: "W1_research_to_plan", outputPath: path.join(tenantRoot, "jobs", `${jobId}.json`), jobId, adapterMode });
+      assert.equal(job.adapterMode, adapterMode);
+      assert.equal(job.promptVersion, "owner_configured_required");
+    }
   });
 });
 

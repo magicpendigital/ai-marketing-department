@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "contracts": [
     "schemas/product-truth.schema.json",
     "schemas/content-brief.schema.json",
@@ -7,7 +7,16 @@
     "schemas/qa-verdict.schema.json",
     "schemas/approval-record.schema.json",
     "schemas/execution-receipt.schema.json",
-    "schemas/learning-export.schema.json"
+    "schemas/learning-export.schema.json",
+    "schemas/agent-work-order.schema.json",
+    "schemas/agent-job-state.schema.json",
+    "schemas/agent-run-receipt.schema.json",
+    "schemas/independent-qa-verdict.schema.json",
+    "schemas/canvas-workspace-registry.schema.json"
+  ],
+  "runtimeContracts": [
+    "../growth-core/config/agent-runner-contract.json",
+    "../growth-core/config/local-agent-bridge.json"
   ],
   "dataBoundary": "Contracts may describe only sanitized configuration, approved public material references, or de-identified aggregate learning."
 }

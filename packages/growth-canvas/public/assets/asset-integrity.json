@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0.0",
+  "assets": [
+    {
+      "path": "campaign-candle.png",
+      "sha256": "37472e25fe64d2f4049fe7f6f3c192d01128ac283ad91ed02d7de8d551ecd26e",
+      "source": "generated_for_portable_canvas",
+      "tenantNeutralReview": "passed",
+      "rights": "generated_asset_for_framework_distribution"
+    }
+  ]
+}

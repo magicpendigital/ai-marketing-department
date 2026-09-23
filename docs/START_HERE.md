@@ -87,7 +87,18 @@ npm run tenant:artifact:validate -- --tenant-root <private-tenant-directory>
 npm run tenant:job:prepare -- --tenant-root <private-tenant-directory> --workflow W2_content_factory --job-id <safe-id> --output <private-tenant-directory>/jobs/<safe-id>.json
 ```
 
-The framework does not invoke a model provider itself. The tenant owner must separately configure any runtime, credential storage, privacy controls, and provider policy before that runtime may use the manifest.
+The framework does not invoke a model provider itself. An `owner_configured` provider adapter requires the tenant owner to configure that runtime, credential storage, privacy controls, and provider policy. The default `coding_agent_handoff` adapter uses the owner's existing Coding Agent subscription and does not ask the framework user for an LLM API key.
+
+For the no-key local pilot, use the structured Coding Agent handoff instead of configuring an LLM API key:
+
+```sh
+npm run canvas:build
+npm run canvas:start -- --workspace ../tenant --port 4310
+```
+
+The Canvas validates W0 before creating a job, writes an immutable tenant-scoped work order, and provides the exact manual handoff. Read [Local Canvas](LOCAL_CANVAS.md) for claim, completion, QA, content review, owner decisions, and fallback behavior. Media provenance and Pro Supervisor contracts remain incubating; review [Media Provenance Workflow](MEDIA_PROVENANCE_WORKFLOW.md) and [Pro Supervisor Operating Model](PRO_SUPERVISOR_OPERATING_MODEL.md) before implementing either runtime.
+
+The content lead and independent QA must use different tenant-mapped roles. The lead claims and drafts, the QA role writes the attempt-bound artifact-hash verdict, and only then may the lead completion receipt move a passing package to owner review. A revision always uses a new attempt while preserving the prior attempt archive.
 
 For an owner-produced non-synthetic learning export, validate the file before a product owner reviews it:
 

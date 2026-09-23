@@ -57,7 +57,7 @@ test("initializer rejects unsafe tenant ids and a non-empty target", () => {
   }
 });
 
-test("fictional ready tenant passes W0/B1 validation and stays draft-only", () => {
+test("generated ready test tenant passes W0/B1 validation and stays draft-only", () => {
   withTenant((tenantRoot) => {
     materializeSyntheticReadyTenant({ tenantRoot, tenantId: "example-ai" });
     const result = validateGrowthTenant(tenantRoot);
@@ -65,6 +65,17 @@ test("fictional ready tenant passes W0/B1 validation and stays draft-only", () =
     assert.deepEqual(result.warnings, []);
     assert.equal(result.summary.state, "ready_for_internal_drafts");
     assert.equal(result.summary.externalExecution, "forbidden");
+  });
+});
+
+test("a real tenant cannot retain fixture-only language", () => {
+  withTenant((tenantRoot) => {
+    materializeSyntheticReadyTenant({ tenantRoot, tenantId: "example-ai" });
+    const manifest = readJson(tenantRoot, "onboarding-manifest.json");
+    manifest.purpose = "Fictional completed W0 checklist for validator testing only.";
+    writeJson(tenantRoot, "onboarding-manifest.json", manifest);
+    const result = validateGrowthTenant(tenantRoot);
+    assert.ok(result.errors.some((error) => error.includes("fixture-only language")));
   });
 });
 

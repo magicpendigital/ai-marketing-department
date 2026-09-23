@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-marketing-department.local/schemas/canvas-workspace-registry.schema.json",
+  "title": "Growth Canvas single-workspace registry",
+  "description": "Runtime metadata for one private tenant workspace. A Canvas process cannot register multiple raw tenants.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "workspaceId",
+    "tenantId",
+    "workspaceRoot",
+    "topology",
+    "handoffMode",
+    "ownerDecisionBoundary",
+    "externalActionAuthority"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "workspaceId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "workspaceRoot": { "type": "string", "minLength": 1 },
+    "topology": { "const": "single_tenant_per_process" },
+    "handoffMode": { "const": "manual_coding_agent" },
+    "ownerDecisionBoundary": { "const": "procedural_local_user_action_not_authenticated" },
+    "externalActionAuthority": {
+      "type": "object",
+      "required": ["publish", "send", "schedule", "createCampaign", "uploadAudience", "spend"],
+      "properties": {
+        "publish": { "const": false },
+        "send": { "const": false },
+        "schedule": { "const": false },
+        "createCampaign": { "const": false },
+        "uploadAudience": { "const": false },
+        "spend": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

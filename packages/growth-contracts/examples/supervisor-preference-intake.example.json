@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "0.1.0-incubating",
+  "intakeId": "supervisor-intake-001",
+  "tenantId": "example-studio",
+  "version": "1.0.0",
+  "status": "owner_verified",
+  "collectionMethod": "hybrid",
+  "principalRole": "business_owner",
+  "operatingIntent": {
+    "objective": "Approve strong internal campaign drafts quickly while preserving evidence, brand, and rights standards.",
+    "successDefinition": "Routine decisions match the owner and uncertain or novel cases are escalated before any action.",
+    "acceptableTradeoffs": ["slower throughput when evidence is incomplete", "more revision requests for new formats"],
+    "nonNegotiables": ["no unsupported claim", "no unknown media rights", "no synthetic person", "no external action outside an explicit envelope"]
+  },
+  "responses": [
+    {
+      "promptId": "goals-01",
+      "domain": "goals",
+      "answer": "Prioritize qualified customer understanding over content volume.",
+      "importance": "must",
+      "evidenceRef": "owner-form:goals-01"
+    },
+    {
+      "promptId": "audience-01",
+      "domain": "audience",
+      "answer": "Write for the reviewed job-to-be-done, not inferred sensitive traits.",
+      "importance": "must",
+      "evidenceRef": "owner-form:audience-01"
+    },
+    {
+      "promptId": "brand-01",
+      "domain": "brand",
+      "answer": "Prefer precise, calm copy with one clear action and concrete proof.",
+      "importance": "strong_preference",
+      "evidenceRef": "owner-form:brand-01"
+    },
+    {
+      "promptId": "claims-01",
+      "domain": "claims",
+      "answer": "Block any claim without a current ProductTruth reference.",
+      "importance": "must_not",
+      "evidenceRef": "owner-form:claims-01"
+    },
+    {
+      "promptId": "media-01",
+      "domain": "media",
+      "answer": "When a brief requires real capture, generated pixels, voice, people, and generative fill are forbidden.",
+      "importance": "must",
+      "evidenceRef": "owner-form:media-01"
+    },
+    {
+      "promptId": "risk-01",
+      "domain": "risk",
+      "answer": "Escalate if rights, evidence, identity boundary, or intended channel is uncertain.",
+      "importance": "must",
+      "evidenceRef": "owner-form:risk-01"
+    },
+    {
+      "promptId": "measurement-01",
+      "domain": "measurement",
+      "answer": "Use conversion and retention evidence only after denominator and consent checks pass.",
+      "importance": "strong_preference",
+      "evidenceRef": "owner-form:measurement-01"
+    },
+    {
+      "promptId": "escalation-01",
+      "domain": "escalation",
+      "answer": "Escalate every novel claim, new channel, new media source, budget increase, or policy conflict.",
+      "importance": "must",
+      "evidenceRef": "owner-form:escalation-01"
+    }
+  ],
+  "decisionExamples": [
+    {
+      "exampleId": "example-content-01",
+      "domain": "content",
+      "scenarioRef": "scenario:clear-copy-current-proof",
+      "availableChoices": ["accept_internal", "request_revision", "reject_internal"],
+      "selectedChoice": "accept_internal",
+      "rationale": "The draft is specific, evidence-bound, on-brand, and has one clear action.",
+      "signalsThatWouldChangeDecision": ["expired evidence", "ambiguous destination", "weak accessibility"]
+    },
+    {
+      "exampleId": "example-media-01",
+      "domain": "media",
+      "scenarioRef": "scenario:real-capture-required-but-generative-fill-used",
+      "availableChoices": ["accept_internal", "request_revision", "reject_internal"],
+      "selectedChoice": "reject_internal",
+      "rationale": "The actual media origin violates a non-negotiable source policy.",
+      "signalsThatWouldChangeDecision": ["new owner-approved request version explicitly permits the operation before production"]
+    },
+    {
+      "exampleId": "example-risk-01",
+      "domain": "risk",
+      "scenarioRef": "scenario:new-format-with-no-precedent",
+      "availableChoices": ["accept_internal", "request_revision", "escalate"],
+      "selectedChoice": "escalate",
+      "rationale": "The format is outside reviewed precedent and confidence should not substitute for owner intent.",
+      "signalsThatWouldChangeDecision": ["owner labels representative examples", "shadow evaluation passes for the format"]
+    }
+  ],
+  "dataBoundary": {
+    "rawTranscriptStored": false,
+    "directIdentifiersStored": false,
+    "allowedDataClasses": ["structured preference", "business rule", "labeled synthetic scenario", "versioned decision outcome"],
+    "prohibitedDataClasses": ["raw private conversation", "customer identifier", "credential", "sensitive personal data", "cross-tenant record"],
+    "retentionPolicyRef": "policy:supervisor-calibration-retention"
+  },
+  "ownerVerification": {
+    "status": "verified",
+    "verifiedByRole": "business_owner",
+    "verifiedAt": "2026-09-23T08:00:00Z",
+    "changeRequestRef": null
+  },
+  "audit": {
+    "createdAt": "2026-09-23T07:00:00Z",
+    "createdByRole": "supervisor_calibration_facilitator",
+    "sourceRecordHashes": ["dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]
+  }
+}

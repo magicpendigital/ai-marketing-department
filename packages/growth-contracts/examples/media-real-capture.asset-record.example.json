@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "0.1.0-incubating",
+  "assetId": "media-asset-education-001",
+  "tenantId": "example-studio",
+  "requestRef": "media-request-education-001@1.0.0",
+  "version": "1.0.0",
+  "status": "approved_internal",
+  "mediaKind": "video",
+  "sourceMode": "real_capture",
+  "policySnapshot": {
+    "requestVersion": "1.0.0",
+    "requiredOrigin": "real_capture_only",
+    "generativeAiPolicy": "planning_only_no_media_synthesis",
+    "actualGenerativeAiUse": false,
+    "syntheticIdentityMedia": "not_used"
+  },
+  "sourceFiles": [
+    {
+      "fileRef": "tenant-private://media/education-001/camera-original-01.mp4",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 524288000,
+      "mimeType": "video/mp4",
+      "role": "camera_original",
+      "ingestedAt": "2026-09-23T05:00:00Z",
+      "metadataDisposition": "sensitive_metadata_stripped"
+    },
+    {
+      "fileRef": "tenant-private://media/education-001/edit-master-01.mp4",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bytes": 104857600,
+      "mimeType": "video/mp4",
+      "role": "edit_master",
+      "ingestedAt": "2026-09-23T06:00:00Z",
+      "metadataDisposition": "sensitive_metadata_stripped"
+    }
+  ],
+  "captureEvidence": {
+    "captureBriefRef": "capture-brief-education-001",
+    "completedShotIds": ["shot-01", "shot-02"],
+    "captureWindow": "approved production session",
+    "productStateEvidenceRef": "product-truth:reviewed-build",
+    "locationEvidenceRef": "rights:studio-location-release-001",
+    "captureOperatorRole": "media_production_owner",
+    "rawGpsStored": false
+  },
+  "editLog": [
+    {
+      "operation": "select, trim, colour-correct, mix recorded audio, and add approved captions",
+      "class": "non_generative",
+      "performedByRole": "media_editor",
+      "performedAt": "2026-09-23T05:45:00Z",
+      "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "toolRef": "tenant-approved non-generative editing workflow"
+    }
+  ],
+  "rightsEvidence": {
+    "ownershipBasis": "commissioned_work_for_hire",
+    "evidenceRefs": ["rights:work-for-hire-001", "rights:usage-scope-001"],
+    "releases": [
+      {
+        "category": "person",
+        "releaseRef": "rights:talent-release-001",
+        "scope": "approved campaign, channels, territories, and term",
+        "status": "approved",
+        "validUntil": "2027-09-23"
+      },
+      {
+        "category": "location",
+        "releaseRef": "rights:studio-location-release-001",
+        "scope": "approved campaign production and distribution",
+        "status": "approved",
+        "validUntil": null
+      },
+      {
+        "category": "music_or_audio",
+        "releaseRef": "rights:original-audio-assignment-001",
+        "scope": "approved campaign, channels, territories, and term",
+        "status": "approved",
+        "validUntil": "2027-09-23"
+      }
+    ],
+    "territories": ["owner-approved pilot territory"],
+    "channels": ["owner-reviewed organic channel"],
+    "validFrom": "2026-09-23",
+    "validUntil": "2027-09-23",
+    "commercialUse": true,
+    "status": "approved",
+    "reviewerRole": "rights_reviewer"
+  },
+  "accessibility": {
+    "altTextByLocale": {
+      "en-GB": "A person uses the reviewed product in a real studio demonstration."
+    },
+    "captions": "provided",
+    "transcript": "provided",
+    "flashingContentCheck": "pass",
+    "status": "pass"
+  },
+  "technicalQa": {
+    "status": "pass",
+    "checks": ["codec", "duration", "frame-safe composition", "audio levels", "caption timing"],
+    "reviewerRole": "independent_media_qa",
+    "reviewedAt": "2026-09-23T06:30:00Z"
+  },
+  "contentQa": {
+    "status": "pass",
+    "hardFailureCodes": [],
+    "authenticityVerified": true,
+    "brandVerified": true,
+    "claimsVerified": true,
+    "reviewerRole": "independent_content_qa",
+    "reviewedAt": "2026-09-23T06:45:00Z"
+  },
+  "approvals": {
+    "manifestHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "editorial": {
+      "status": "approved",
+      "reviewerRole": "brand_owner",
+      "reviewedAt": "2026-09-23T07:00:00Z",
+      "reasonCode": "matches_reviewed_campaign_direction"
+    },
+    "rights": {
+      "status": "approved",
+      "reviewerRole": "rights_reviewer",
+      "reviewedAt": "2026-09-23T06:50:00Z",
+      "reasonCode": "rights_scope_and_releases_verified"
+    },
+    "media": {
+      "status": "approved",
+      "reviewerRole": "media_owner",
+      "reviewedAt": "2026-09-23T07:05:00Z",
+      "reasonCode": "real_capture_and_non_generative_edit_history_verified"
+    },
+    "approvalInvalidatedBy": ["file or edit change", "caption change", "rights change", "channel or term change"]
+  },
+  "externalReadiness": {
+    "status": "eligible_for_separate_execution_review",
+    "blockingGates": ["separate execution envelope", "current destination proof", "publish receipt and rollback plan"],
+    "executionEnvelopeRef": null,
+    "externalAction": "not_authorized_by_this_record"
+  },
+  "audit": {
+    "createdAt": "2026-09-23T06:10:00Z",
+    "createdByRole": "media_production_owner",
+    "eventChainRef": "audit:media-asset-education-001",
+    "supersedesAssetVersion": null
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-marketing-department.local/schemas/agent-work-order.schema.json",
+  "title": "Growth Canvas agent work order",
+  "description": "An immutable, tenant-scoped instruction envelope for internal draft work. It never grants an external action.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "workOrderVersion",
+    "jobId",
+    "tenantId",
+    "workflowId",
+    "mode",
+    "lifecycleState",
+    "adapterMode",
+    "requestedCapability",
+    "assignedAgentRole",
+    "subagentTemplateIds",
+    "taskDescription",
+    "managerReview",
+    "handoff",
+    "inputArtifactReferences",
+    "outputArtifactType",
+    "allowedDataClasses",
+    "promptVersion",
+    "qualityGateVersion",
+    "idempotencyKey",
+    "requiredNextSteps",
+    "hardStop"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "workOrderVersion": { "const": "1.0.0" },
+    "jobId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "workflowId": { "enum": ["W0_readiness", "W1_research_to_plan", "W2_content_factory", "W6_learning_to_product"] },
+    "mode": { "const": "draft_only" },
+    "lifecycleState": {
+      "enum": [
+        "prepared",
+        "available_for_handoff",
+        "claimed_by_coding_agent",
+        "in_progress",
+        "artifact_submitted",
+        "deterministic_lint_complete",
+        "independent_qa_complete",
+        "awaiting_human_decision",
+        "repair_required",
+        "completed_internal",
+        "blocked",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "adapterMode": { "enum": ["coding_agent_handoff", "disabled", "mock", "owner_configured"] },
+    "requestedCapability": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "assignedAgentRole": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "subagentTemplateIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,79}$" }
+    },
+    "taskDescription": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "managerReview": {
+      "type": "object",
+      "required": ["decisionRequired", "checklist"],
+      "properties": {
+        "decisionRequired": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "checklist": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "handoff": {
+      "type": "object",
+      "required": ["adapterMode", "transport", "requiresUserInitiation", "credentialPolicy", "headlessAuthentication", "nextAction"],
+      "properties": {
+        "adapterMode": { "enum": ["coding_agent_handoff", "disabled", "mock", "owner_configured"] },
+        "transport": { "enum": ["tenant_scoped_json_work_order", "runtime_adapter_contract", "none"] },
+        "requiresUserInitiation": { "type": "boolean" },
+        "credentialPolicy": { "const": "framework_accepts_no_provider_credentials" },
+        "headlessAuthentication": { "const": "not_implemented_or_promised" },
+        "nextAction": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      },
+      "additionalProperties": false
+    },
+    "inputArtifactReferences": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$" }
+    },
+    "outputArtifactType": { "enum": ["tenant_readiness_record", "versioned_brief", "concept_copy_package", "aggregate_learning_note"] },
+    "allowedDataClasses": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "tenant_sanitized_configuration",
+          "approved_public_research",
+          "licensed_or_owned_asset_reference",
+          "aggregate_deidentified_learning_export"
+        ]
+      }
+    },
+    "promptVersion": { "type": "string", "minLength": 1 },
+    "qualityGateVersion": { "type": "string", "minLength": 1 },
+    "idempotencyKey": { "type": "string", "minLength": 5 },
+    "requiredNextSteps": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "hardStop": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

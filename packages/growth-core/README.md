@@ -9,9 +9,10 @@ Future GitHub extraction must use `export-manifest.json` as an allow-list. Tenan
 In this source workspace, the manager checks are:
 
 ```sh
-npm run growth:validate:portable
-npm run growth:test:portable
-npm run growth:tenant:demo
+npm run validate
+npm test
+npm run tenant:two:validate
+npm run canvas:test
 node scripts/export-growth-framework.mjs --dry-run --source-boundary <tenant-config-or-readiness-file>
 ```
 

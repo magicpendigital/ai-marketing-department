@@ -8,24 +8,93 @@ const modulePath = fileURLToPath(import.meta.url);
 const jobDefinitions = Object.freeze({
   W0_readiness: {
     inputArtifactReferences: ["tenant-config.json", "brand-pack.json", "business-pack.json", "product-truth.json", "role-mapping.json", "risk-register.json", "privacy/consent-data-map.json", "channels/capability-matrix.json", "journey/journey-map.json", "measurement/event-ownership-map.json"],
-    outputArtifactType: "tenant_readiness_record"
+    outputArtifactType: "tenant_readiness_record",
+    requestedCapability: "product_truth_validation",
+    assignedAgentRole: "product_truth_claim_guard",
+    subagentTemplateIds: ["evidence_reference_checker", "identity_boundary_checker", "capability_matrix_checker"],
+    taskDescription: "Verify the tenant boundary, ProductTruth evidence, data rules, channel capabilities, journey map, and measurement ownership before any internal marketing draft is created.",
+    managerReview: {
+      decisionRequired: "owner_accepts_product_truth",
+      checklist: ["Tenant identity and owner are correct", "Claims have current evidence", "Restricted data and channel boundaries are explicit", "Readiness blockers and next decisions are visible"]
+    }
   },
   W1_research_to_plan: {
     inputArtifactReferences: ["readiness.json", "research/source-register.json", "research/interview-kit.json", "journey/journey-map.json", "product-truth.json", "measurement/event-ownership-map.json"],
-    outputArtifactType: "versioned_brief"
+    outputArtifactType: "versioned_brief",
+    requestedCapability: "content_research",
+    assignedAgentRole: "research_jtbd",
+    subagentTemplateIds: ["source_register_reviewer", "jtbd_synthesizer", "research_risk_checker"],
+    taskDescription: "Turn approved sources and sanitized research into testable audience-job hypotheses, positioning, an internal experiment brief, and an owned measurement plan.",
+    managerReview: {
+      decisionRequired: "owner_accepts_research_scope",
+      checklist: ["Sources and usage rights are acceptable", "Audience needs are hypotheses rather than sensitive inferences", "Claims are bounded by current ProductTruth", "Success metric, denominator, and guardrails are defined"]
+    }
   },
   W2_content_factory: {
     inputArtifactReferences: ["product-truth.json", "brand-pack.json", "campaigns/experiment-brief.json", "briefs/index.json", "content-drafts/index.json"],
-    outputArtifactType: "concept_copy_package"
+    outputArtifactType: "concept_copy_package",
+    requestedCapability: "content_authoring",
+    assignedAgentRole: "content_studio",
+    subagentTemplateIds: ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"],
+    taskDescription: "Create an internal concept, copy, and visual-direction package from the approved brief, using only allowed claims, locales, and owned or licensed asset references.",
+    managerReview: {
+      decisionRequired: "editor_or_owner_decision",
+      checklist: ["The concept answers the approved audience job", "Copy matches the BrandPack and allowed claims", "Required locales, rights, and accessibility are complete", "Deterministic lint and independent QA are attached"]
+    }
   },
   W6_learning_to_product: {
     inputArtifactReferences: ["learning/learning-note.json", "measurement/event-ownership-map.json", "journey/journey-map.json", "approvals/index.json"],
-    outputArtifactType: "aggregate_learning_note"
+    outputArtifactType: "aggregate_learning_note",
+    requestedCapability: "measurement_analysis",
+    assignedAgentRole: "journey_measurement",
+    subagentTemplateIds: ["metric_denominator_checker", "aggregate_privacy_checker", "learning_hypothesis_synthesizer"],
+    taskDescription: "Validate an aggregate LearningExport, explain quality and journey signals, update the learning hypothesis, and draft a product or content ticket for owner triage.",
+    managerReview: {
+      decisionRequired: "product_owner_triage",
+      checklist: ["Only approved aggregate inputs are used", "Metric definitions and denominators are stable", "Uncertainty and alternative explanations are recorded", "The proposed action remains a draft for owner triage"]
+    }
   }
 });
 
-const allowedAdapterModes = new Set(["disabled", "mock", "owner_configured"]);
+const allowedAdapterModes = new Set(["disabled", "mock", "owner_configured", "coding_agent_handoff"]);
 const jobIdPattern = /^[a-z][a-z0-9-]{2,79}$/;
+
+const handoffForAdapter = (adapterMode, jobId) => {
+  const base = {
+    adapterMode,
+    transport: "runtime_adapter_contract",
+    requiresUserInitiation: false,
+    credentialPolicy: "framework_accepts_no_provider_credentials",
+    headlessAuthentication: "not_implemented_or_promised",
+    nextAction: "Use the selected adapter under its separately reviewed runtime contract."
+  };
+  if (adapterMode === "coding_agent_handoff") {
+    return {
+      ...base,
+      transport: "tenant_scoped_json_work_order",
+      requiresUserInitiation: true,
+      nextAction: `Open a user-authorized Coding Agent session in the correct private tenant workspace and ask it to claim job ${jobId}. The framework does not log in or operate the subscription headlessly.`
+    };
+  }
+  if (adapterMode === "disabled") {
+    return {
+      ...base,
+      transport: "none",
+      nextAction: "No runner is enabled. Keep this work order as an internal draft manifest."
+    };
+  }
+  if (adapterMode === "mock") {
+    return {
+      ...base,
+      nextAction: "Use synthetic data only to test the work-order contract."
+    };
+  }
+  return {
+    ...base,
+    requiresUserInitiation: true,
+    nextAction: "Use a separately configured owner runtime. Do not place credentials in this work order or repository."
+  };
+};
 
 const valueFor = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -120,7 +189,7 @@ const prepareSafeOutputPath = ({ tenantRoot, outputPath }) => {
 export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, adapterMode = "disabled" }) => {
   if (!jobDefinitions[workflowId]) throw new Error(`Unsupported internal workflow: ${workflowId || "unknown"}.`);
   if (!jobIdPattern.test(jobId || "")) throw new Error("Job id must use lowercase letters, digits, and hyphens, and be 3–80 characters long.");
-  if (!allowedAdapterModes.has(adapterMode)) throw new Error("Adapter mode must be disabled, mock, or owner_configured.");
+  if (!allowedAdapterModes.has(adapterMode)) throw new Error("Adapter mode must be disabled, mock, owner_configured, or coding_agent_handoff.");
 
   const resolvedTenantRoot = path.resolve(tenantRoot || "");
   const resolvedOutput = path.resolve(outputPath || "");
@@ -133,18 +202,28 @@ export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, ad
   const definition = jobDefinitions[workflowId];
   const job = {
     schemaVersion: "1.0.0",
+    workOrderVersion: "1.0.0",
     jobId,
     tenantId: tenantConfig.tenantId,
     workflowId,
     mode: "draft_only",
     adapterMode,
+    lifecycleState: "prepared",
+    requestedCapability: definition.requestedCapability,
+    assignedAgentRole: definition.assignedAgentRole,
+    subagentTemplateIds: definition.subagentTemplateIds,
+    taskDescription: definition.taskDescription,
+    managerReview: definition.managerReview,
     inputArtifactReferences: definition.inputArtifactReferences,
     outputArtifactType: definition.outputArtifactType,
     allowedDataClasses: ["tenant_sanitized_configuration", "approved_public_research", "licensed_or_owned_asset_reference", "aggregate_deidentified_learning_export"],
-    promptVersion: "owner_configured_required",
+    promptVersion: adapterMode === "coding_agent_handoff" ? "repository_instructions_and_skill_contract_1" : "owner_configured_required",
     qualityGateVersion: "growth_core_1",
     idempotencyKey: `${tenantConfig.tenantId}:${workflowId}:${jobId}`,
-    requiredNextSteps: ["redact_and_store_internal_draft", "run_deterministic_lint", "run_independent_qa", "await_human_decision"],
+    handoff: handoffForAdapter(adapterMode, jobId),
+    requiredNextSteps: adapterMode === "coding_agent_handoff"
+      ? ["make_work_order_available_for_handoff", "user_initiates_coding_agent_session", "coding_agent_claims_job", "redact_and_store_internal_draft", "run_deterministic_lint", "run_independent_qa", "await_human_decision"]
+      : ["redact_and_store_internal_draft", "run_deterministic_lint", "run_independent_qa", "await_human_decision"],
     hardStop: "This manifest prepares an internal job only. It cannot invoke a provider, access a credential, publish, send, schedule, create a campaign, upload an audience, spend money, or change a product."
   };
   const safeOutputPath = prepareSafeOutputPath({ tenantRoot: resolvedTenantRoot, outputPath: resolvedOutput });
@@ -164,7 +243,7 @@ const runAsCli = () => {
   const jobId = valueFor("--job-id");
   const adapterMode = valueFor("--adapter-mode") || "disabled";
   if (!tenantRoot || !workflowId || !outputPath || !jobId) {
-    console.error("Use --tenant-root <private-tenant-directory> --workflow <W0_readiness|W1_research_to_plan|W2_content_factory|W6_learning_to_product> --job-id <safe-id> --output <tenant-internal-json> [--adapter-mode disabled|mock|owner_configured].");
+    console.error("Use --tenant-root <private-tenant-directory> --workflow <W0_readiness|W1_research_to_plan|W2_content_factory|W6_learning_to_product> --job-id <safe-id> --output <tenant-internal-json> [--adapter-mode disabled|mock|owner_configured|coding_agent_handoff].");
     process.exit(1);
   }
   try {

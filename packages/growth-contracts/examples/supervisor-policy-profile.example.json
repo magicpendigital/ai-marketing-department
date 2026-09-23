@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "0.1.0-incubating",
+  "policyId": "supervisor-policy-001",
+  "tenantId": "example-studio",
+  "version": "1.0.0",
+  "status": "shadow",
+  "currentFrameworkIntegration": "shadow_only",
+  "principalRole": "business_owner",
+  "intakeRefs": ["supervisor-intake-001@1.0.0"],
+  "trainingBasis": {
+    "verifiedIntakeCount": 1,
+    "labeledDecisionCount": 12,
+    "decisionWindow": "initial calibration set",
+    "excludedDataClasses": ["raw private conversation", "customer identifier", "credential", "cross-tenant record"],
+    "policyDerivationMethod": "explicit_rules_plus_owner_labeled_precedents"
+  },
+  "operatingMode": "shadow",
+  "decisionDomains": [
+    {
+      "domain": "internal_content_review",
+      "enabled": true,
+      "ruleRefs": ["rule:current-evidence", "rule:brand-fit", "rule:single-clear-action"],
+      "precedentTags": ["routine-internal-draft", "current-product-truth"],
+      "escalationOwnerRole": "business_owner"
+    },
+    {
+      "domain": "media_source_compliance",
+      "enabled": true,
+      "ruleRefs": ["rule:media-origin", "rule:rights-complete", "rule:no-synthetic-identity"],
+      "precedentTags": ["real-capture-required"],
+      "escalationOwnerRole": "rights_owner"
+    },
+    {
+      "domain": "preauthorized_channel_execution",
+      "enabled": false,
+      "ruleRefs": ["rule:future-execution-envelope-required"],
+      "precedentTags": [],
+      "escalationOwnerRole": "channel_owner"
+    }
+  ],
+  "authority": {
+    "allowedDecisions": ["accept_internal", "request_revision", "reject_internal", "select_variant"],
+    "neverAllowed": [
+      "override_hard_failure",
+      "change_own_policy",
+      "expand_own_authority",
+      "approve_new_claim_evidence",
+      "approve_missing_media_rights",
+      "access_or_rotate_credentials",
+      "increase_budget_cap",
+      "create_new_targeting_class",
+      "impersonate_human_principal",
+      "suppress_audit_event"
+    ],
+    "preauthorizedEnvelopeRefs": [],
+    "identityRepresentation": "agent_decision_on_behalf_of_policy_not_human_impersonation"
+  },
+  "thresholds": {
+    "minimumCalibratedConfidence": 0.9,
+    "minimumEvidenceCoverage": 1,
+    "minimumPrecedentSimilarity": 0.85,
+    "maximumNovelty": 0.2,
+    "maximumRisk": 0.15,
+    "maximumImpactClass": "low"
+  },
+  "hardFailPolicy": {
+    "outcome": "block",
+    "override": "forbidden",
+    "requiresHumanEscalation": true
+  },
+  "separationOfDuties": {
+    "producerMaySuperviseOwnOutput": false,
+    "supervisorMayReplaceIndependentQa": false,
+    "independentQaRequired": true,
+    "conflictPolicy": "escalate_and_block"
+  },
+  "activationGate": {
+    "minimumShadowDecisions": 30,
+    "minimumOverallAgreement": 0.9,
+    "minimumAgreementByDecisionClass": 0.85,
+    "maximumCriticalFalseApprovals": 0,
+    "outOfDistributionTestsRequired": true,
+    "ownerSignoffRequired": true
+  },
+  "learningPolicy": {
+    "onlineSelfModification": "forbidden",
+    "historyUse": "versioned_precedent_and_evaluation_only",
+    "proposedPolicyChanges": "draft_new_version",
+    "promotion": "explicit_human_approval_required"
+  },
+  "auditPolicy": {
+    "recordEveryDecision": true,
+    "bindArtifactHash": true,
+    "bindPolicyHash": true,
+    "recordEvidenceAndRules": true,
+    "recordScoreComponents": true,
+    "recordEscalations": true,
+    "appendOnlyEventChain": true
+  },
+  "killSwitch": {
+    "ownerRole": "business_owner",
+    "state": "armed",
+    "failClosed": true,
+    "triggerRefs": ["trigger:hard-fail", "trigger:drift", "trigger:audit-gap", "trigger:owner-pause"]
+  },
+  "approval": {
+    "status": "approved_for_shadow",
+    "approvedByRole": "business_owner",
+    "approvedAt": "2026-09-23T08:30:00Z",
+    "policyHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "expiresAt": "2026-10-23T08:30:00Z"
+  }
+}

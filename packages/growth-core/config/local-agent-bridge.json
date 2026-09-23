@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "1.0.0",
+  "contractId": "growth_local_agent_bridge",
+  "purpose": "Define a local, provider-neutral work-order handoff between the manager Canvas and a user-authorized Coding Agent session without collecting an LLM API key.",
+  "defaultAdapterMode": "coding_agent_handoff",
+  "transport": "tenant_scoped_json_work_order",
+  "executionBoundary": {
+    "frameworkRequiresProviderApiKey": false,
+    "frameworkAcceptsProviderApiKey": false,
+    "frameworkStoresProviderCredential": false,
+    "userInitiatedAgentSessionRequired": true,
+    "headlessSubscriptionAuthentication": "not_implemented_or_promised"
+  },
+  "sourceOfTruth": {
+    "workOrder": "tenant_workspace_job_manifest",
+    "frameworkInstructions": "repository_agents_and_versioned_skills",
+    "businessFacts": "current_tenant_owned_artifacts",
+    "qualityDecision": "deterministic_lint_plus_independent_qa",
+    "managerDecision": "named_human_owner_only"
+  },
+  "handoffLifecycle": [
+    {
+      "state": "prepared",
+      "actor": "canvas_or_cli",
+      "next": ["available_for_handoff", "blocked", "cancelled"]
+    },
+    {
+      "state": "available_for_handoff",
+      "actor": "canvas_or_cli",
+      "next": ["claimed_by_coding_agent", "blocked", "cancelled"]
+    },
+    {
+      "state": "claimed_by_coding_agent",
+      "actor": "user_authorized_coding_agent",
+      "next": ["in_progress", "blocked", "failed"]
+    },
+    {
+      "state": "in_progress",
+      "actor": "user_authorized_coding_agent",
+      "next": ["artifact_submitted", "blocked", "failed"]
+    },
+    {
+      "state": "artifact_submitted",
+      "actor": "user_authorized_coding_agent",
+      "next": ["deterministic_lint_complete", "repair_required", "blocked"]
+    },
+    {
+      "state": "deterministic_lint_complete",
+      "actor": "framework",
+      "next": ["independent_qa_complete", "repair_required", "blocked"]
+    },
+    {
+      "state": "independent_qa_complete",
+      "actor": "independent_qa",
+      "next": ["awaiting_human_decision", "repair_required", "blocked"]
+    },
+    {
+      "state": "awaiting_human_decision",
+      "actor": "named_human_owner",
+      "next": ["completed_internal", "repair_required", "blocked"]
+    },
+    {
+      "state": "repair_required",
+      "actor": "canvas_or_cli",
+      "next": ["available_for_handoff", "blocked", "cancelled"]
+    },
+    {
+      "state": "completed_internal",
+      "actor": "named_human_owner",
+      "next": []
+    },
+    {
+      "state": "blocked",
+      "actor": "framework_or_reviewer",
+      "next": []
+    },
+    {
+      "state": "failed",
+      "actor": "framework_or_coding_agent",
+      "next": []
+    },
+    {
+      "state": "cancelled",
+      "actor": "named_human_owner",
+      "next": []
+    }
+  ],
+  "claimRules": [
+    "A claim must be tenant-scoped and bound to one job identifier and one attempt.",
+    "A Coding Agent session must be initiated and authorized by the user outside the framework; the framework must not extract, copy, or emulate subscription credentials.",
+    "Concurrent workers must not claim the same attempt.",
+    "A claim grants draft production authority only and never grants human approval or external execution authority."
+  ],
+  "agentWritableReceiptFields": [
+    "jobId",
+    "tenantId",
+    "workflowId",
+    "attemptId",
+    "inputReferenceHashes",
+    "outputReference",
+    "redactionVerdict",
+    "lintVerdict",
+    "qualityGateStatus",
+    "blocker",
+    "nextRequiredHumanDecision"
+  ],
+  "agentForbiddenReceiptFields": [
+    "humanApproval",
+    "independentQaVerdict",
+    "externalExecutionReceipt",
+    "providerCredential",
+    "subscriptionCredential"
+  ],
+  "independentQaBoundary": {
+    "authorityFile": "qa-verdict.json",
+    "reviewerCapability": "quality_assurance",
+    "reviewerRoleSource": "tenant_role_mapping",
+    "reviewerMustDifferFromAssignedAgentRole": true,
+    "artifactBinding": "exact_sha256_and_bytes_for_active_claim_attempt",
+    "completionRequirement": "fresh_rehash_matches_independent_verdict"
+  },
+  "hardStops": [
+    "The bridge may not request, accept, store, proxy, or expose an LLM provider API key or Coding Agent subscription credential.",
+    "The bridge may not claim unattended or headless access to a user's Coding Agent subscription.",
+    "The bridge may not publish, schedule, send, contact people, create a campaign, upload an audience, spend money, or modify a product.",
+    "The Coding Agent may not write a human approval or external-execution receipt.",
+    "The work-order lead may not self-review; a separately mapped quality_assurance role must write the artifact-bound verdict.",
+    "Raw artifacts and work orders may not cross tenant boundaries."
+  ],
+  "implementationStatus": "structured_manual_handoff_contract_no_headless_invocation"
+}

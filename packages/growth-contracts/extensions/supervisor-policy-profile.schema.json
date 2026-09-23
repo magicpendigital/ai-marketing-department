@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/growth-contracts/extensions/supervisor-policy-profile.schema.json",
+  "title": "Bounded Supervisor Policy Profile",
+  "description": "A versioned operating policy derived from explicit owner preferences and labeled decisions. It may automate only enumerated decisions inside a pre-authorized envelope.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "policyId",
+    "tenantId",
+    "version",
+    "status",
+    "currentFrameworkIntegration",
+    "principalRole",
+    "intakeRefs",
+    "trainingBasis",
+    "operatingMode",
+    "decisionDomains",
+    "authority",
+    "thresholds",
+    "hardFailPolicy",
+    "separationOfDuties",
+    "activationGate",
+    "learningPolicy",
+    "auditPolicy",
+    "killSwitch",
+    "approval"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "0.1.0-incubating" },
+    "policyId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "status": { "enum": ["draft", "shadow", "active_bounded", "suspended", "revoked"] },
+    "currentFrameworkIntegration": { "enum": ["not_activated", "shadow_only", "bounded_runtime_enabled"] },
+    "principalRole": { "type": "string", "minLength": 1 },
+    "intakeRefs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "trainingBasis": {
+      "type": "object",
+      "required": ["verifiedIntakeCount", "labeledDecisionCount", "decisionWindow", "excludedDataClasses", "policyDerivationMethod"],
+      "properties": {
+        "verifiedIntakeCount": { "type": "integer", "minimum": 1 },
+        "labeledDecisionCount": { "type": "integer", "minimum": 0 },
+        "decisionWindow": { "type": "string" },
+        "excludedDataClasses": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "policyDerivationMethod": { "const": "explicit_rules_plus_owner_labeled_precedents" }
+      },
+      "additionalProperties": false
+    },
+    "operatingMode": { "enum": ["shadow", "advisory", "bounded_autonomy"] },
+    "decisionDomains": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["domain", "enabled", "ruleRefs", "precedentTags", "escalationOwnerRole"],
+        "properties": {
+          "domain": { "enum": ["internal_content_review", "revision_direction", "creative_variant_selection", "media_source_compliance", "preauthorized_channel_execution", "preauthorized_budget_operation"] },
+          "enabled": { "type": "boolean" },
+          "ruleRefs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "precedentTags": { "type": "array", "items": { "type": "string" } },
+          "escalationOwnerRole": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": ["allowedDecisions", "neverAllowed", "preauthorizedEnvelopeRefs", "identityRepresentation"],
+      "properties": {
+        "allowedDecisions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["accept_internal", "request_revision", "reject_internal", "select_variant", "approve_inside_preauthorized_envelope"] }
+        },
+        "neverAllowed": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "override_hard_failure",
+              "change_own_policy",
+              "expand_own_authority",
+              "approve_new_claim_evidence",
+              "approve_missing_media_rights",
+              "access_or_rotate_credentials",
+              "increase_budget_cap",
+              "create_new_targeting_class",
+              "impersonate_human_principal",
+              "suppress_audit_event"
+            ]
+          }
+        },
+        "preauthorizedEnvelopeRefs": { "type": "array", "items": { "type": "string" } },
+        "identityRepresentation": { "const": "agent_decision_on_behalf_of_policy_not_human_impersonation" }
+      },
+      "additionalProperties": false
+    },
+    "thresholds": {
+      "type": "object",
+      "required": ["minimumCalibratedConfidence", "minimumEvidenceCoverage", "minimumPrecedentSimilarity", "maximumNovelty", "maximumRisk", "maximumImpactClass"],
+      "properties": {
+        "minimumCalibratedConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimumEvidenceCoverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimumPrecedentSimilarity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maximumNovelty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maximumRisk": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maximumImpactClass": { "enum": ["low", "medium"] }
+      },
+      "additionalProperties": false
+    },
+    "hardFailPolicy": {
+      "type": "object",
+      "required": ["outcome", "override", "requiresHumanEscalation"],
+      "properties": {
+        "outcome": { "const": "block" },
+        "override": { "const": "forbidden" },
+        "requiresHumanEscalation": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "separationOfDuties": {
+      "type": "object",
+      "required": ["producerMaySuperviseOwnOutput", "supervisorMayReplaceIndependentQa", "independentQaRequired", "conflictPolicy"],
+      "properties": {
+        "producerMaySuperviseOwnOutput": { "const": false },
+        "supervisorMayReplaceIndependentQa": { "const": false },
+        "independentQaRequired": { "const": true },
+        "conflictPolicy": { "const": "escalate_and_block" }
+      },
+      "additionalProperties": false
+    },
+    "activationGate": {
+      "type": "object",
+      "required": ["minimumShadowDecisions", "minimumOverallAgreement", "minimumAgreementByDecisionClass", "maximumCriticalFalseApprovals", "outOfDistributionTestsRequired", "ownerSignoffRequired"],
+      "properties": {
+        "minimumShadowDecisions": { "type": "integer", "minimum": 1 },
+        "minimumOverallAgreement": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimumAgreementByDecisionClass": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maximumCriticalFalseApprovals": { "const": 0 },
+        "outOfDistributionTestsRequired": { "const": true },
+        "ownerSignoffRequired": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "learningPolicy": {
+      "type": "object",
+      "required": ["onlineSelfModification", "historyUse", "proposedPolicyChanges", "promotion"],
+      "properties": {
+        "onlineSelfModification": { "const": "forbidden" },
+        "historyUse": { "const": "versioned_precedent_and_evaluation_only" },
+        "proposedPolicyChanges": { "const": "draft_new_version" },
+        "promotion": { "const": "explicit_human_approval_required" }
+      },
+      "additionalProperties": false
+    },
+    "auditPolicy": {
+      "type": "object",
+      "required": ["recordEveryDecision", "bindArtifactHash", "bindPolicyHash", "recordEvidenceAndRules", "recordScoreComponents", "recordEscalations", "appendOnlyEventChain"],
+      "properties": {
+        "recordEveryDecision": { "const": true },
+        "bindArtifactHash": { "const": true },
+        "bindPolicyHash": { "const": true },
+        "recordEvidenceAndRules": { "const": true },
+        "recordScoreComponents": { "const": true },
+        "recordEscalations": { "const": true },
+        "appendOnlyEventChain": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "killSwitch": {
+      "type": "object",
+      "required": ["ownerRole", "state", "failClosed", "triggerRefs"],
+      "properties": {
+        "ownerRole": { "type": "string" },
+        "state": { "enum": ["armed", "activated"] },
+        "failClosed": { "const": true },
+        "triggerRefs": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "approval": {
+      "type": "object",
+      "required": ["status", "approvedByRole", "approvedAt", "policyHash", "expiresAt"],
+      "properties": {
+        "status": { "enum": ["pending", "approved_for_shadow", "approved_for_bounded_autonomy", "suspended", "revoked"] },
+        "approvedByRole": { "type": "string" },
+        "approvedAt": { "type": ["string", "null"], "format": "date-time" },
+        "policyHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

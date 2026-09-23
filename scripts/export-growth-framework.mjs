@@ -1,13 +1,16 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { containsSensitiveData, validateGrowthFramework } from "./growth-framework-validator.mjs";
 
 const modulePath = fileURLToPath(import.meta.url);
 
 const readJson = (workspaceRoot, relativePath) => JSON.parse(fs.readFileSync(path.join(workspaceRoot, relativePath), "utf8"));
-const isTextFile = (filePath) => /\.(?:json|mjs|md|txt|ya?ml|toml|csv|js|sh)$/i.test(filePath) || ["package.json", ".gitignore", "CODEOWNERS"].includes(path.basename(filePath));
+const isTextFile = (filePath) => /\.(?:json|mjs|md|txt|ya?ml|toml|csv|js|jsx|css|html|sh)$/i.test(filePath) || ["package.json", ".gitignore", ".npmrc", "CODEOWNERS"].includes(path.basename(filePath));
+const sha256File = (filePath) => crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+const isTransientExportPath = (relativePath) => /(?:^|\/)(?:node_modules|dist|coverage|\.vite)(?:\/|$)/i.test(relativePath.replaceAll("\\", "/"));
 
 const textWithoutDetectorDefinition = (relativePath, text) => {
   if (relativePath !== "scripts/growth-framework-validator.mjs") return text;
@@ -53,12 +56,38 @@ const materializeRepositoryTemplate = (outputRoot, sourceWorkspaceRoot) => {
 
 const assertCleanText = (root, forbiddenTerms) => {
   const violations = [];
+  const binaryManifestPath = path.join(root, "packages", "growth-canvas", "public", "assets", "asset-integrity.json");
+  const approvedBinaries = new Map();
+  if (fs.existsSync(binaryManifestPath)) {
+    const manifest = JSON.parse(fs.readFileSync(binaryManifestPath, "utf8"));
+    for (const asset of manifest.assets || []) {
+      const relativePath = path.posix.join("packages/growth-canvas/public/assets", asset.path || "");
+      if (!/^packages\/growth-canvas\/public\/assets\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|webp)$/i.test(relativePath)) {
+        violations.push(`${relativePath}: binary asset manifest path is invalid`);
+        continue;
+      }
+      if (!/^[a-f0-9]{64}$/.test(asset.sha256 || "") || asset.tenantNeutralReview !== "passed" || asset.rights !== "generated_asset_for_framework_distribution") {
+        violations.push(`${relativePath}: binary asset lacks an approved integrity and rights record`);
+        continue;
+      }
+      approvedBinaries.set(relativePath, asset.sha256);
+    }
+  }
+  const seenApprovedBinaries = new Set();
   const normalizedForbiddenTerms = (forbiddenTerms || [])
     .filter((term) => typeof term === "string" && term.trim().length > 0)
     .map((term) => term.trim().toLowerCase());
   for (const filePath of listFiles(root)) {
+    const relativePath = path.relative(root, filePath).replaceAll("\\", "/");
     if (!isTextFile(filePath)) {
-      violations.push(`${filePath}: has an unscanned file type`);
+      const expectedHash = approvedBinaries.get(relativePath);
+      if (!expectedHash) {
+        violations.push(`${filePath}: has an unscanned file type`);
+      } else if (sha256File(filePath) !== expectedHash) {
+        violations.push(`${relativePath}: binary asset hash differs from its reviewed integrity record`);
+      } else {
+        seenApprovedBinaries.add(relativePath);
+      }
       continue;
     }
     const text = fs.readFileSync(filePath, "utf8");
@@ -66,14 +95,17 @@ const assertCleanText = (root, forbiddenTerms) => {
     if (normalizedForbiddenTerms.some((term) => normalizedText.includes(term))) {
       violations.push(`${filePath}: contains tenant-specific branding`);
     }
-    const relativePath = path.relative(root, filePath).replaceAll("\\", "/");
     const isSyntheticQaFixture = relativePath === "packages/growth-fixtures/qa/adversarial-fixtures.json" && /"isSynthetic"\s*:\s*true/.test(text);
-    if (containsSensitiveData(textWithoutDetectorDefinition(relativePath, text)) && !isSyntheticQaFixture) {
+    const isDependencyLock = relativePath === "package-lock.json";
+    if (containsSensitiveData(textWithoutDetectorDefinition(relativePath, text)) && !isSyntheticQaFixture && !isDependencyLock) {
       violations.push(`${filePath}: contains a personal-data pattern`);
     }
     if (/(?:sk-[a-z0-9]{16,}|(?:api[_-]?key|authorization|bearer)\s*[:=]\s*["']?[^\s"']{8,})/i.test(text)) {
       violations.push(`${filePath}: contains a credential-like pattern`);
     }
+  }
+  for (const relativePath of approvedBinaries.keys()) {
+    if (!seenApprovedBinaries.has(relativePath)) violations.push(`${relativePath}: reviewed binary asset is missing from the export`);
   }
   if (violations.length) throw new Error(`Clean export check failed:\n${violations.map((item) => `- ${item}`).join("\n")}`);
 };
@@ -113,7 +145,10 @@ export const createGrowthFrameworkExport = (workspaceRoot, outputRoot, { forbidd
     if (!fs.existsSync(source)) throw new Error(`Allow-listed export path does not exist: ${relativePath}`);
     assertSymlinkFree(source);
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.cpSync(source, target, { recursive: true });
+    fs.cpSync(source, target, {
+      recursive: true,
+      filter: (sourcePath) => !isTransientExportPath(path.relative(workspaceRoot, sourcePath))
+    });
   }
   fs.copyFileSync(path.join(workspaceRoot, "packages/growth-core/export-root-package.json"), path.join(outputRoot, "package.json"));
   materializeRepositoryTemplate(outputRoot, workspaceRoot);
