@@ -622,7 +622,10 @@ function ManagerArtifactPreview({ summary }) {
   return <section className="manager-artifact-preview"><div className="section-title-row"><div><span className="review-bundle__eyebrow">Bản xem nhanh cho người duyệt</span><h3>Nội dung được đề xuất</h3></div>{summary.locale && <span className="context-label">{summary.locale}</span>}</div>{hasCopy ? <div className="manager-copy-card">{summary.concept && <p><strong>Ý tưởng đề xuất</strong>{summary.concept}</p>}{summary.headline && <p><strong>Tiêu đề</strong>{summary.headline}</p>}{summary.body && <p><strong>Nội dung</strong>{summary.body}</p>}{summary.cta && <p><strong>Kêu gọi hành động</strong>{summary.cta}</p>}</div> : <p className="artifact-card__empty">Tệp đã được xác minh nhưng chưa có nội dung JSON có cấu trúc để tạo bản xem nhanh.</p>}<div className="manager-review-facts"><div><span>Điểm QA trung bình</span><strong>{summary.qa.mean ?? "—"}/5</strong></div><div><span>Điểm QA thấp nhất</span><strong>{summary.qa.min ?? "—"}/5</strong></div></div><div className="remaining-gates"><strong>Điều kiện còn lại</strong><ul>{summary.remainingGates.map((gate) => <li key={gate}>{gate}</li>)}</ul></div></section>;
 }
 
-function ReviewBundlePanel({ review }) {
+function ReviewBundlePanel({ review, taskStatus }) {
+  if (taskStatus === "accepted_internal" && review.status !== "ready") {
+    return <section className="review-bundle review-bundle--verified"><div className="review-bundle__header"><div><span className="review-bundle__eyebrow">Quyết định đã ghi nhận</span><h3>Nội dung đã được duyệt nội bộ</h3></div><StatusLabel tone="success">Đã duyệt nội bộ</StatusLabel></div><p>Mở hồ sơ task trong mục Nội dung để xem toàn bộ bản đã duyệt, media và nguồn, điểm chất lượng cùng lịch sử quyết định. Quyết định này không cấp quyền xuất bản, gửi, lên lịch, tạo campaign, tải audience hoặc chi tiêu.</p></section>;
+  }
   if (review.status === "loading") return <section className="review-bundle review-bundle--loading" aria-live="polite"><div className="review-bundle__loading" /><p>Đang tải và kiểm tra gói duyệt hiện tại…</p></section>;
   if (review.status !== "ready") {
     return <section className="review-bundle review-bundle--blocked"><div className="review-bundle__header"><div><span className="review-bundle__eyebrow">Gói duyệt an toàn</span><h3>Chưa thể xác minh nội dung để duyệt</h3></div><StatusLabel tone="current">Đã khóa quyết định</StatusLabel></div><p>{review.error ?? "Tệp kết quả, kiểm định độc lập và biên nhận lần chạy chưa sẵn sàng hoặc chưa được xác minh."}</p></section>;
@@ -664,6 +667,7 @@ function ReviewBundlePanel({ review }) {
 
 function TaskReview({ task, busy, onDecision, review, onCopyHandoff, onOpenContent, allowHandoff, ownerDecisionBoundary }) {
   const canDecide = task.status === "awaiting_owner_decision" && review.status === "ready" && review.data?.readyForOwnerDecision === true;
+  const acceptedInternal = task.status === "accepted_internal";
   const showHandoff = allowHandoff && ["ready_for_agent", "in_progress", "revision_requested"].includes(task.status) && Boolean(task.handoffPrompt);
   return (
     <section className="task-card">
@@ -672,10 +676,10 @@ function TaskReview({ task, busy, onDecision, review, onCopyHandoff, onOpenConte
       </div>
       <aside className="content-preview"><img src={task.preview?.imageUrl ?? "/assets/campaign-candle.png"} alt="Ảnh xem trước cho nội dung chiến dịch" /><span>{task.preview?.type}</span><h3>{task.preview?.title}</h3><p>{task.preview?.description}</p><button className="text-button" type="button" onClick={onOpenContent}>{task.preview?.count ?? "Xem nội dung"} <ArrowRight /></button></aside>
       {showHandoff && <section className="handoff-card"><div><span>Chuyển task thủ công</span><h3>Gửi phiếu công việc này cho Coding Agent</h3><p>Canvas chưa kiểm tra đăng nhập và không tự khởi chạy Coding Agent. Sao chép hướng dẫn do backend tạo rồi gửi trong Coding Agent bạn đang dùng.</p></div><button className="secondary-button" type="button" onClick={() => onCopyHandoff(task.handoffPrompt)}><ClipboardText size={18} />Sao chép hướng dẫn</button></section>}
-      <ReviewBundlePanel review={review} />
-      {!canDecide && <p className="task-card__guard"><Info size={17} />Quyết định của chủ doanh nghiệp sẽ mở sau khi Coding Agent hoàn thành task và người kiểm định độc lập gửi kết quả để duyệt.</p>}
+      <ReviewBundlePanel review={review} taskStatus={task.status} />
+      {!canDecide && !acceptedInternal && <p className="task-card__guard"><Info size={17} />Quyết định của chủ doanh nghiệp sẽ mở sau khi Coding Agent hoàn thành task và người kiểm định độc lập gửi kết quả để duyệt.</p>}
       <p className="owner-identity-note"><ShieldCheck size={17} />Bản alpha ghi nhận quyền duyệt của chủ doanh nghiệp theo thủ tục cục bộ ({ownerDecisionBoundary === "procedural_local_user_action_not_authenticated" ? "chưa xác thực danh tính" : "theo cấu hình cục bộ"}). Canvas chưa xác minh sự hiện diện của người dùng bằng tài khoản hệ điều hành hoặc WebAuthn.</p>
-      <div className="task-card__actions"><button className="secondary-button" type="button" disabled={busy || !canDecide} onClick={() => onDecision("revise")}><ChatCircleDots />Yêu cầu chỉnh sửa</button><button className="primary-button" type="button" disabled={busy || !canDecide} onClick={() => onDecision("accept")}><CheckCircle weight="fill" />{busy ? "Đang xử lý…" : canDecide ? "Mở để phê duyệt" : "Chưa đến bước duyệt"}</button></div>
+      <div className="task-card__actions"><button className="secondary-button" type="button" disabled={busy || !canDecide} onClick={() => onDecision("revise")}><ChatCircleDots />Yêu cầu chỉnh sửa</button><button className="primary-button" type="button" disabled={busy || !canDecide} onClick={() => onDecision("accept")}><CheckCircle weight="fill" />{busy ? "Đang xử lý…" : acceptedInternal ? "Đã duyệt nội bộ" : canDecide ? "Mở để phê duyệt" : "Chưa đến bước duyệt"}</button></div>
     </section>
   );
 }
