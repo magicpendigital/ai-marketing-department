@@ -1,5 +1,7 @@
 # Local Canvas alpha
 
+> Người quản lý không muốn thao tác terminal hoặc JSON: xem [Hướng dẫn nhanh cho manager](MANAGER_QUICK_START.vi.md).
+
 Local Canvas is the manager-facing control surface for the portable AI Marketing Department. It runs on the owner's machine, reads exactly one private tenant workspace per process, and hands bounded jobs to a Coding Agent the owner already uses.
 
 It does not request an LLM API key. It also does not promise free or unlimited model usage: the selected Coding Agent remains subject to its own subscription, login state, usage limits, and product terms.
@@ -45,9 +47,10 @@ During UI-only development, `npm run canvas:dev` starts Vite with a tenant-neutr
 4. Copy the task instruction or open the private workspace in the Coding Agent.
 5. Tell the Coding Agent to read `AGENTS.md`, the matching skill, and the exact job manifest before it claims the job.
 6. Have the tenant-mapped `quality_assurance` role run the independent review, then watch the job move from `in_progress` to owner review, repair, or blocked.
-7. Open **Nội dung** in the left navigation. Use **Cần duyệt**, **Đã duyệt**, or **Cần sửa** to find the record, then select it from the list.
-8. Read **Nội dung đầy đủ** for every produced copy variant. Use **Media & nguồn** for supplied visual/media instructions, rights, sources, and provenance; **Chất lượng** for independent QA; and **Phiên bản & quyết định** for attempts and owner reasons. Raw JSON and hashes stay in the collapsed evidence view.
-9. For a record in **Cần duyệt**, record a reason when approving it internally or requesting a revision. An internal approval does not grant any external-action authority.
+7. Open **Nội dung** in the left navigation. Use **Cần duyệt**, **Đã duyệt**, or **Cần sửa** to find the record, then select it from the list. A zero count shows an explicit empty message; it is not a blank workspace.
+8. Read **Nội dung đầy đủ** for every produced copy variant. Use **Preview theo kênh** to simulate Facebook, Instagram, LinkedIn, or blog layouts and compare locale, copy concept, and any hash-verified image/video file attached to the work order. When more than one file is attached, select the intended one manually; this alpha does not yet bind every copy variant to a specific media file in the package. The simulation is advisory and does not guarantee pixel-perfect rendering on a live platform.
+9. Use **Media & nguồn** for supplied visual/media instructions, rights, sources, and provenance; **Chất lượng** for independent QA; and **Phiên bản & quyết định** for attempts and owner reasons. Raw JSON and hashes stay in the collapsed evidence view.
+10. For a record in **Cần duyệt**, record a reason when approving it internally or requesting a revision. An internal approval does not grant any external-action authority.
 
 The interface never treats `queued` or `in_progress` as completed work. A quality score is a gate summary, not proof of campaign performance.
 
@@ -73,7 +76,7 @@ npm run tenant:job:complete -- --workspace <private-tenant-directory> --job-id <
 
 Claim, review, completion, cancellation, and owner decisions use one cross-process per-job lock. Completion and owner review recompute deterministic lint, rehash the artifacts, and require exact equality with the separate QA verdict; the lead receipt cannot self-attest QA. A revision creates a distinct attempt and archives the prior claim, deterministic-lint receipt, QA, run receipt, integrity record, state snapshot, and artifact bytes without overwrite. The Coding Agent cannot write the owner's decision.
 
-The compact dashboard review card previews at most 32 KiB per text artifact and 128 KiB total. The dedicated **Content** workspace uses a separate bounded reader of 512 KiB per text artifact and 2 MiB total per record so normal concept/copy packages render in full. Larger text deliverables must be split into reviewable artifacts in this alpha; the UI keeps integrity metadata visible when a bounded preview is refused.
+The compact dashboard review card previews at most 32 KiB per text artifact and 128 KiB total. The dedicated **Content** workspace uses a separate bounded reader of 512 KiB per text artifact and 2 MiB total per record so normal concept/copy packages render in full. Larger text deliverables must be split into reviewable artifacts in this alpha; the UI keeps integrity metadata visible when a bounded preview is refused. A separate, capability-protected endpoint serves only manifest-declared, independently hash-verified PNG, JPEG, WebP, MP4, or WebM artifacts for inline preview (12 MiB image / 48 MiB video limit, no public storage URL). This is a read-only preview path, not a media upload or provenance pipeline.
 
 ### Recover an expired claim
 

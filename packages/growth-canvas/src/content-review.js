@@ -1,3 +1,5 @@
+import { mediaKindForArtifact } from "./content-preview.js";
+
 const reviewStateByStatus = Object.freeze({
   awaiting_owner_decision: "pending",
   accepted_internal: "approved",
@@ -116,18 +118,20 @@ export function parseContentArtifacts(contentRecord) {
     if (typeof content === "string" && /json/i.test(artifact?.preview?.mediaType ?? artifact?.mediaType ?? artifact?.reference ?? "")) {
       try { parsed = JSON.parse(content); } catch { /* The verified raw preview remains available below. */ }
     }
+    const preview = artifact?.preview ?? {};
     return {
       id: artifact.reference ?? `artifact-${index + 1}`,
       reference: artifact.reference ?? `Tệp ${index + 1}`,
       hash: artifact.hash ?? artifact.currentHash ?? null,
       bytes: artifact.bytes ?? artifact.preview?.bytes ?? null,
-      mediaType: artifact.preview?.mediaType ?? artifact.mediaType ?? "application/octet-stream",
-      previewStatus: artifact.preview?.status ?? (content != null ? "available" : "metadata_only"),
+      mediaType: preview.mediaType ?? artifact.mediaType ?? "application/octet-stream",
+      previewStatus: preview.status ?? (content != null ? "available" : "metadata_only"),
       rawContent: typeof content === "string" ? content : null,
       parsed,
       copyGroups: parsed ? collectCopyGroups(parsed) : [],
       mediaMetadata: parsed ? collectMetadata(parsed, mediaKeyPattern) : [],
       sourceMetadata: parsed ? collectMetadata(parsed, sourceKeyPattern) : [],
+      mediaKind: mediaKindForArtifact({ ...artifact, preview }),
     };
   });
 }

@@ -64,6 +64,15 @@ const api = async (runtime, pathname, { method = "GET", body, origin = runtime.b
   return { status: response.status, body: await response.json() };
 };
 
+const apiMedia = async (runtime, pathname, { capability = runtime.accessCapability } = {}) => {
+  const response = await fetch(`${runtime.baseUrl}${pathname}`, {
+    headers: { ...(capability ? { "X-Canvas-Capability": capability } : {}), Accept: "image/*, video/*" }
+  });
+  const contentType = response.headers.get("content-type");
+  const body = Buffer.from(await response.arrayBuffer());
+  return { status: response.status, contentType, body, ...(contentType?.includes("application/json") ? { error: JSON.parse(body.toString("utf8")) } : {}) };
+};
+
 const jobInput = (jobId = "launch-concept-001") => ({
   jobId,
   workflowId: "W2_content_factory",
@@ -602,6 +611,49 @@ test("Content record keeps a revision-requested draft readable with its decision
     const draftArtifact = contentRecord.body.review.artifacts.find(({ reference }) => path.basename(reference) === "draft.json");
     assert.match(draftArtifact.preview.content, /Nội dung đầy đủ/);
     assert.equal(contentRecord.body.decisionHistory[0].decision, "revise");
+  });
+});
+
+test("Content media preview serves only hash-verified, declared image and video artifacts", async () => {
+  const tenantRoot = createTenant({ tenantId: "verified-media-preview-tenant" });
+  const store = createCanvasWorkspaceStore({ workspace: tenantRoot });
+  await withServer(tenantRoot, async (runtime) => {
+    const jobId = "verified-media-preview-job";
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: jobInput(jobId) })).status, 201);
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/eewAAAAASUVORK5CYII=", "base64");
+    const lifecycle = runReviewedLifecycle({
+      tenantRoot,
+      store,
+      jobId,
+      artifacts: [
+        { name: "approved-visual.png", content: png },
+        { name: "spoofed-visual.png", content: Buffer.from("not really a PNG", "utf8") }
+      ]
+    });
+
+    const visualRef = lifecycle.references.find((reference) => reference.endsWith("approved-visual.png"));
+    const spoofRef = lifecycle.references.find((reference) => reference.endsWith("spoofed-visual.png"));
+    const preview = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(visualRef)}`);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.contentType, "image/png");
+    assert.deepEqual(preview.body, png);
+    assert.equal(preview.body.length, png.length);
+
+    const unlisted = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent("content-drafts/not-in-the-reviewed-job.jpg")}`);
+    assert.equal(unlisted.status, 404);
+    assert.equal(unlisted.error.error.code, "media_artifact_not_found");
+
+    const spoofed = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(spoofRef)}`);
+    assert.equal(spoofed.status, 415);
+    assert.equal(spoofed.error.error.code, "media_signature_rejected");
+
+    const unauthenticated = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(visualRef)}`, { capability: "" });
+    assert.equal(unauthenticated.status, 401);
+
+    fs.appendFileSync(path.join(tenantRoot, visualRef), Buffer.from([0x00]));
+    const tampered = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(visualRef)}`);
+    assert.equal(tampered.status, 409);
+    assert.equal(tampered.error.error.code, "decision_lint_invalid");
   });
 });
 

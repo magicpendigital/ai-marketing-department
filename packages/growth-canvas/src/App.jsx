@@ -63,6 +63,7 @@ import {
   preferredContentFilter,
   qualityDimensionsForRecord,
 } from "./content-review.js";
+import { channelPreviewProfiles, selectPreviewCopy } from "./content-preview.js";
 
 const demoBootstrap = {
   organization: {
@@ -267,6 +268,7 @@ const vietnameseStatusLabels = Object.freeze({
   "decision required": "Cần quyết định",
   "accepted internally": "Đã duyệt nội bộ",
   available: "Có preview",
+  media_available: "Tệp media có thể xem trước",
   not_requested: "Không yêu cầu preview",
   refused_binary: "Không hiển thị tệp nhị phân",
   refused_oversize: "Tệp vượt giới hạn preview",
@@ -749,6 +751,128 @@ function FullContentPanel({ record }) {
   return <div className="full-content-list">{artifacts.map((artifact) => <article className="full-content-artifact" key={artifact.id}><div className="full-content-artifact__header"><div><span>Tệp kết quả đã xác minh</span><h3>{artifact.reference}</h3></div><StatusLabel tone={artifact.previewStatus === "available" ? "success" : "current"}>{localizeStatusText(artifact.previewStatus)}</StatusLabel></div>{artifact.copyGroups.length > 0 ? <div className="copy-groups">{artifact.copyGroups.map((group, groupIndex) => <section className="copy-group" key={group.id}><div className="copy-group__title"><span>{String(groupIndex + 1).padStart(2, "0")}</span><h4>{group.label}</h4></div>{group.variants.map((variant) => <div className="locale-copy" key={`${group.id}-${variant.locale}`}><strong>{variant.locale}</strong><dl>{variant.fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></div>)}</section>)}</div> : artifact.rawContent ? <pre className="full-text-preview">{artifact.rawContent}</pre> : <p className="content-record__empty-note">Backend chỉ cung cấp metadata cho định dạng tệp này.</p>}<details className="raw-artifact-details"><summary>Dữ liệu gốc và thông tin toàn vẹn</summary><dl><div><dt>Loại dữ liệu</dt><dd>{artifact.mediaType}</dd></div><div><dt>Kích thước</dt><dd>{artifact.bytes == null ? "Chưa có" : `${artifact.bytes} byte`}</dd></div><div><dt>Hash</dt><dd><code>{artifact.hash || "Chưa có"}</code></dd></div></dl>{artifact.parsed && <pre>{JSON.stringify(artifact.parsed, null, 2)}</pre>}</details></article>)}</div>;
 }
 
+function VerifiedMediaPreview({ jobId, artifact, altText }) {
+  const [resource, setResource] = useState({ status: "loading", url: "", error: "" });
+  const [playbackError, setPlaybackError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl = "";
+    let cancelled = false;
+    setPlaybackError("");
+    setResource({ status: "loading", url: "", error: "" });
+    const query = new URLSearchParams({ reference: artifact.reference });
+    canvasFetch(`/api/jobs/${encodeURIComponent(jobId)}/media-preview?${query.toString()}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) {
+          let detail = "Không thể tải media đã kiểm định.";
+          try { detail = (await response.json())?.error?.message ?? detail; } catch { /* Keep the safe fallback. */ }
+          throw new Error(detail);
+        }
+        const mediaType = response.headers.get("Content-Type")?.split(";")[0] ?? "";
+        const integrityHash = response.headers.get("X-Canvas-Artifact-SHA256");
+        if (mediaType !== artifact.mediaType || integrityHash !== artifact.hash) throw new Error("Tệp media trả về không khớp hash đã kiểm định.");
+        return response.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setResource({ status: "ready", url: objectUrl, error: "" });
+      })
+      .catch((error) => {
+        if (cancelled || error.name === "AbortError") return;
+        setResource({ status: "error", url: "", error: error.message });
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [artifact.hash, artifact.mediaType, artifact.reference, jobId]);
+
+  if (resource.status === "loading") return <div className="channel-preview-media-state" role="status">Đang tải tệp media đã kiểm định…</div>;
+  if (resource.status !== "ready") return <div className="channel-preview-media-state channel-preview-media-state--error" role="alert">{resource.error || "Không thể xem tệp media."}</div>;
+  return <figure className={`channel-preview-media channel-preview-media--${artifact.mediaKind}`}>
+    {artifact.mediaKind === "video"
+      ? <video src={resource.url} controls preload="metadata" aria-label={altText || `Video ${artifact.reference}`} onError={() => setPlaybackError("Trình duyệt này không phát được codec video trong tệp.")} />
+      : <img src={resource.url} alt={altText || `Ảnh ${artifact.reference}`} onError={() => setPlaybackError("Trình duyệt không giải mã được tệp ảnh này.")} />}
+    {playbackError && <p className="channel-preview-media__error" role="alert">{playbackError}</p>}
+    <figcaption><strong>{artifact.mediaKind === "video" ? "Video đính kèm" : "Ảnh đính kèm"}</strong><span>{artifact.reference.split("/").at(-1)}</span><small>Tệp khớp hash của hồ sơ; preview không tự xác nhận bản quyền hoặc nguồn media.</small></figcaption>
+  </figure>;
+}
+
+function ChannelPreviewPanel({ record, brandName }) {
+  const artifacts = parseContentArtifacts(record);
+  const textArtifacts = artifacts.filter((artifact) => artifact.copyGroups.length > 0);
+  const copyChoices = textArtifacts.flatMap((artifact) => artifact.copyGroups.map((group) => ({
+    id: `${artifact.id}::${group.id}`,
+    artifact,
+    group,
+    label: `${group.label} · ${artifact.reference.split("/").at(-1)}`,
+  })));
+  const mediaArtifacts = artifacts.filter((artifact) => artifact.mediaKind && artifact.previewStatus === "media_available");
+  const [channelId, setChannelId] = useState("facebook");
+  const [copyChoiceId, setCopyChoiceId] = useState("");
+  const [mediaId, setMediaId] = useState("");
+  const [locale, setLocale] = useState("vi");
+  const choicesKey = copyChoices.map((choice) => choice.id).join("|");
+  const mediaKey = mediaArtifacts.map((asset) => asset.id).join("|");
+  useEffect(() => {
+    if (!copyChoices.some((choice) => choice.id === copyChoiceId)) setCopyChoiceId(copyChoices[0]?.id ?? "");
+  }, [choicesKey, copyChoiceId]);
+  useEffect(() => {
+    if (!mediaArtifacts.some((asset) => asset.id === mediaId)) setMediaId(mediaArtifacts.length === 1 ? mediaArtifacts[0].id : "");
+  }, [mediaKey, mediaId]);
+
+  const profile = channelPreviewProfiles.find((item) => item.id === channelId) ?? channelPreviewProfiles[0];
+  const selectedChoice = copyChoices.find((choice) => choice.id === copyChoiceId) ?? copyChoices[0] ?? null;
+  const copy = selectedChoice ? selectPreviewCopy([selectedChoice.group], selectedChoice.group.id, locale) : selectPreviewCopy([], "", "");
+  const mediaArtifact = mediaArtifacts.find((artifact) => artifact.id === mediaId) ?? null;
+  const visualBrief = textArtifacts.map((artifact) => artifact.parsed?.visualBrief).find(Boolean);
+  const localeOptions = selectedChoice?.group.variants.map((variant) => variant.locale) ?? [];
+  const compactBrandName = String(brandName || "Thương hiệu").trim();
+  const declaredChannel = record.channelId ?? textArtifacts.map((artifact) => artifact.parsed?.channelId ?? artifact.parsed?.channel ?? artifact.parsed?.destination?.channelId).find(Boolean);
+  const declaredChannelName = typeof declaredChannel === "string" ? declaredChannel : declaredChannel?.label ?? declaredChannel?.name ?? declaredChannel?.id ?? "kênh đã cấu hình";
+  const initials = compactBrandName.slice(0, 1).toLocaleUpperCase("vi-VN");
+  const mediaView = mediaArtifact
+    ? <VerifiedMediaPreview jobId={record.jobId} artifact={mediaArtifact} altText={copy.altText || visualBrief?.accessibility?.altText} />
+    : <div className="channel-preview-media-state channel-preview-media-state--empty"><ImageSquare size={22} /><strong>Task chưa có tệp ảnh hoặc video được khai báo.</strong><p>{copy.altText ? `Mô tả media hiện có: ${copy.altText}` : visualBrief ? `Đã có hướng dẫn hình ảnh (${visualBrief.rightsStatus ?? "chưa ghi nhận quyền"}), nhưng chưa có tệp media để dựng preview.` : "Hãy đính kèm tệp media vào cùng task để xem bản kết hợp hoàn chỉnh."}</p></div>;
+  const contentText = <div className="channel-preview-copy">
+    {copy.headline && <h3>{copy.headline}</h3>}
+    {copy.body && <p>{copy.body}</p>}
+    {copy.caption && <p>{copy.caption}</p>}
+  </div>;
+  const action = copy.cta ? <div className="channel-preview-cta" aria-label={`Kêu gọi hành động: ${copy.cta}`}>{copy.cta}<small>CTA mô phỏng · chưa có liên kết đích</small></div> : null;
+
+  return <section className="channel-preview-panel" aria-label="Preview nội dung theo kênh">
+    <div className="channel-preview-panel__intro"><div><span className="review-bundle__eyebrow">Bản mô phỏng để duyệt</span><h3>Nội dung và media theo kênh</h3><p>Chọn nền tảng, biến thể và ngôn ngữ để xem cách copy kết hợp với tệp media được khai báo và khớp hash hồ sơ.</p></div><span className="channel-preview-badge">Không xuất bản</span></div>
+    <div className="channel-preview-toolbar">
+      <label><span>Kênh xem trước</span><select aria-label="Kênh xem trước" value={channelId} onChange={(event) => setChannelId(event.target.value)}>{channelPreviewProfiles.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.surface}</option>)}</select></label>
+      <label><span>Biến thể nội dung</span><select aria-label="Biến thể nội dung" value={selectedChoice?.id ?? ""} onChange={(event) => setCopyChoiceId(event.target.value)} disabled={!copyChoices.length}>{copyChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>
+      <label><span>Ngôn ngữ</span><select aria-label="Ngôn ngữ preview" value={copy.locale} onChange={(event) => setLocale(event.target.value)} disabled={!localeOptions.length}>{localeOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+      <label><span>Media đính kèm</span><select aria-label="Media đính kèm" value={mediaArtifact?.id ?? ""} onChange={(event) => setMediaId(event.target.value)}><option value="">Chưa chọn media</option>{mediaArtifacts.map((item) => <option key={item.id} value={item.id}>{item.mediaKind === "video" ? "Video" : "Ảnh"} · {item.reference.split("/").at(-1)}</option>)}</select></label>
+    </div>
+    <p className="channel-preview-disclaimer"><Info size={16} />{declaredChannel ? `Task khai báo kênh ${declaredChannelName}; lựa chọn hiện tại mô phỏng bố cục ${profile.label}. Xác nhận preview trên tài khoản đích ở bước riêng trước khi xuất bản.` : "Task chưa khai báo kênh đích. Lựa chọn bên dưới chỉ dùng để mô phỏng bố cục, không thay đổi brief hoặc quyền kênh."} Giao diện nền tảng có thể thay đổi theo thiết bị và phiên bản.</p>
+    <div className="channel-preview-stage">
+      {!copy.group ? <div className="channel-preview-empty">Task chưa có bản copy để tạo preview.</div> : profile.editorial ? <article className="channel-preview-post channel-preview-post--blog">
+        <div className="channel-preview-blog-meta">{compactBrandName} <span>·</span> Bài viết xem trước <span>·</span> {copy.locale}</div>
+        <h2>{copy.headline || "Bài viết chưa có tiêu đề"}</h2>
+        {copy.caption && <p className="channel-preview-blog-dek">{copy.caption}</p>}
+        {mediaView}
+        {copy.body && <p className="channel-preview-blog-body">{copy.body}</p>}
+        {action}
+      </article> : <article className={`channel-preview-post channel-preview-post--${profile.id}`}>
+        <header className="channel-preview-post__header"><span className="channel-preview-avatar" aria-hidden="true">{initials}</span><div><strong>{compactBrandName}</strong><span>{profile.surface} · Bản nháp nội bộ</span></div><span className="channel-preview-post__menu" aria-hidden="true">•••</span></header>
+        {profile.mediaPlacement === "before-copy" && mediaView}
+        {contentText}
+        {profile.mediaPlacement === "after-copy" && mediaView}
+        {action}
+        <div className="channel-preview-post__engagement" aria-hidden="true">Thích　·　Bình luận　·　Chia sẻ <span>Phần giao diện tương tác chỉ để mô phỏng</span></div>
+      </article>}
+    </div>
+    <p className="channel-preview-footnote">Preview dùng đúng nội dung và tệp trong hồ sơ đang duyệt. Hash chỉ xác nhận tệp khớp hồ sơ; hãy đối chiếu nguồn, quyền sử dụng và provenance trong tab Media & nguồn. Tỷ lệ ảnh chỉ mô phỏng crop, không sửa tệp gốc hay quyết định nội bộ.</p>
+  </section>;
+}
+
 function MediaSourcePanel({ record }) {
   const artifacts = parseContentArtifacts(record);
   const mediaEntries = artifacts.flatMap((artifact) => artifact.mediaMetadata.map((entry) => ({ ...entry, id: `${artifact.id}-${entry.id}` })));
@@ -770,7 +894,7 @@ function VersionHistoryPanel({ record }) {
   return <div className="history-grid"><section><div className="content-tab-heading"><GitBranch size={22} /><div><h3>Phiên bản sản xuất</h3><p>Mỗi attempt của Coding Agent được giữ thành một mốc truy vết riêng.</p></div></div>{versions.length ? <ol className="version-list">{versions.map((version) => <li key={version.attemptId} className={version.isCurrent ? "is-current" : ""}><span>V{version.number}</span><div><strong>{version.attemptId}</strong><p>{version.completedAt ? `Hoàn tất ${formatManagerDate(version.completedAt)}` : `Bắt đầu ${formatManagerDate(version.startedAt)}`}</p><small>QA: {localizeStatusText(version.qaVerdict)}{version.ownerDecision ? ` · Quyết định: ${version.ownerDecision === "accept" ? "Duyệt nội bộ" : "Yêu cầu sửa"}` : ""}</small></div>{version.isCurrent && <StatusLabel tone="current">Hiện tại</StatusLabel>}</li>)}</ol> : <p className="content-record__empty-note">Chưa có phiên bản được ghi nhận.</p>}</section><section><div className="content-tab-heading"><ClipboardText size={22} /><div><h3>Lịch sử quyết định</h3><p>Lý do duyệt hoặc yêu cầu sửa được giữ lại để các vòng sau hiểu đúng ý chủ doanh nghiệp.</p></div></div>{decisions.length ? <ol className="decision-history">{decisions.map((item, index) => <li key={`${item.decidedAt}-${index}`}><span>{item.decision === "accept" ? <CheckCircle weight="fill" /> : <WarningCircle weight="fill" />}</span><div><strong>{item.decision === "accept" ? "Đã duyệt nội bộ" : item.decision === "revise" ? "Yêu cầu chỉnh sửa" : "Đã chặn"}</strong><time>{formatManagerDate(item.decidedAt)}</time><p>{item.reason || "Không có lý do được ghi lại."}</p></div></li>)}</ol> : <p className="content-record__empty-note">Chưa có quyết định của chủ doanh nghiệp.</p>}</section><section className="history-activity"><details><summary>Nhật ký workflow ({activity.length} sự kiện)</summary><ol>{activity.map((item, index) => <li key={`${item.occurredAt}-${index}`}><time>{formatManagerDate(item.occurredAt)}</time><strong>{eventLabels[item.eventType] ?? item.eventType}</strong><span>{item.actorRole}{item.attemptId ? ` · ${item.attemptId}` : ""}</span></li>)}</ol></details></section></div>;
 }
 
-function ContentRecordDetail({ selectedJob, recordState, onDecision }) {
+function ContentRecordDetail({ selectedJob, recordState, onDecision, brandName }) {
   const [tab, setTab] = useState("content");
   const jobId = selectedJob?.jobId ?? selectedJob?.state?.jobId;
   useEffect(() => setTab("content"), [jobId]);
@@ -780,14 +904,14 @@ function ContentRecordDetail({ selectedJob, recordState, onDecision }) {
   const record = recordState.data;
   const reviewState = contentReviewState(selectedJob);
   const canDecide = reviewState === "pending" && record.review?.readyForOwnerDecision === true;
-  const tabs = [{ id: "content", label: "Nội dung đầy đủ" }, { id: "media", label: "Media & nguồn" }, { id: "quality", label: "Chất lượng" }, { id: "history", label: "Phiên bản & quyết định" }];
-  return <section className="content-record"><header className="content-record__header"><div><div className="content-record__status"><ContentStateLabel state={reviewState} /><span>Cập nhật {formatManagerDate(record.updatedAt)}</span></div><h2>{record.title}</h2><p>{record.campaignSummary || record.managerTaskDescription}</p></div>{canDecide && <div className="content-record__actions"><button className="secondary-button" type="button" onClick={() => onDecision("revise", jobId)}>Yêu cầu sửa</button><button className="primary-button" type="button" onClick={() => onDecision("accept", jobId)}>Duyệt nội bộ</button></div>}</header><nav className="content-record__tabs" aria-label="Chi tiết hồ sơ nội dung">{tabs.map((item) => <button key={item.id} className={tab === item.id ? "is-active" : ""} type="button" onClick={() => setTab(item.id)}>{item.label}</button>)}</nav><div className="content-record__body">{tab === "content" && <FullContentPanel record={record} />}{tab === "media" && <MediaSourcePanel record={record} />}{tab === "quality" && <QualityEvidencePanel record={record} />}{tab === "history" && <VersionHistoryPanel record={record} />}</div><p className="content-record__boundary"><ShieldCheck size={17} />Duyệt nội bộ không cấp quyền xuất bản, gửi, lên lịch, tạo campaign, tải audience hoặc chi tiêu.</p></section>;
+  const tabs = [{ id: "content", label: "Nội dung đầy đủ" }, { id: "preview", label: "Preview theo kênh" }, { id: "media", label: "Media & nguồn" }, { id: "quality", label: "Chất lượng" }, { id: "history", label: "Phiên bản & quyết định" }];
+  return <section className="content-record"><header className="content-record__header"><div><div className="content-record__status"><ContentStateLabel state={reviewState} /><span>Cập nhật {formatManagerDate(record.updatedAt)}</span></div><h2>{record.title}</h2><p>{record.campaignSummary || record.managerTaskDescription}</p></div>{canDecide && <div className="content-record__actions"><button className="secondary-button" type="button" onClick={() => onDecision("revise", jobId)}>Yêu cầu sửa</button><button className="primary-button" type="button" onClick={() => onDecision("accept", jobId)}>Duyệt nội bộ</button></div>}</header><nav className="content-record__tabs" aria-label="Chi tiết hồ sơ nội dung">{tabs.map((item) => <button key={item.id} className={tab === item.id ? "is-active" : ""} type="button" onClick={() => setTab(item.id)}>{item.label}</button>)}</nav><div className="content-record__body">{tab === "content" && <FullContentPanel record={record} />}{tab === "preview" && <ChannelPreviewPanel record={record} brandName={brandName} />}{tab === "media" && <MediaSourcePanel record={record} />}{tab === "quality" && <QualityEvidencePanel record={record} />}{tab === "history" && <VersionHistoryPanel record={record} />}</div><p className="content-record__boundary"><ShieldCheck size={17} />Duyệt nội bộ không cấp quyền xuất bản, gửi, lên lịch, tạo campaign, tải audience hoặc chi tiêu.</p></section>;
 }
 
-function ContentWorkspace({ jobs, filter, onFilter, selectedJobId, onSelectJob, recordState, onDecision }) {
+function ContentWorkspace({ jobs, filter, onFilter, selectedJobId, onSelectJob, recordState, onDecision, brandName }) {
   const visibleJobs = filterContentJobs(jobs, filter);
   const selectedJob = visibleJobs.find((job) => (job.jobId ?? job.state?.jobId) === selectedJobId) ?? visibleJobs[0] ?? null;
-  return <main className="content-workspace"><header className="content-workspace__header"><div><p className="breadcrumb">Thư viện nội dung&nbsp; / &nbsp;Hồ sơ nội bộ</p><h1>Nội dung cần xem xét</h1><p>Xem toàn bộ nội dung đã sản xuất, bằng chứng chất lượng, media, nguồn và lịch sử quyết định trong cùng một nơi.</p></div><div className="content-workspace__summary"><strong>{jobs.filter((job) => contentReviewState(job)).length}</strong><span>hồ sơ có thể xem</span></div></header><nav className="content-filters" aria-label="Lọc nội dung theo trạng thái">{contentFilterOptions.map((item) => { const count = filterContentJobs(jobs, item.id).length; return <button type="button" key={item.id} className={filter === item.id ? "is-active" : ""} onClick={() => onFilter(item.id)}><span>{item.label}</span><strong>{count}</strong></button>; })}</nav><div className="content-workspace__grid"><aside className="content-library"><div className="content-library__heading"><h2>{contentStatusCopy[filter]?.label}</h2><span>{visibleJobs.length} hồ sơ</span></div>{visibleJobs.length ? <ul>{visibleJobs.map((job) => { const state = job.state ?? job; const id = job.jobId ?? state.jobId; const selected = id === selectedJob?.jobId || id === selectedJob?.state?.jobId; return <li key={id}><button className={selected ? "is-selected" : ""} type="button" onClick={() => onSelectJob(id)}><div><ContentStateLabel state={contentReviewState(job)} /><time>{formatManagerDate(state.updatedAt)}</time></div><strong>{state.title || id}</strong><p>{state.campaignSummary || state.managerTaskDescription || "Hồ sơ nội dung nội bộ"}</p><span>Xem nội dung chi tiết <ArrowRight /></span></button></li>; })}</ul> : <div className="content-library__empty"><FileText size={28} /><p>Không có hồ sơ ở trạng thái này.</p></div>}</aside><ContentRecordDetail selectedJob={selectedJob} recordState={recordState} onDecision={onDecision} /></div></main>;
+  return <main className="content-workspace"><header className="content-workspace__header"><div><p className="breadcrumb">Thư viện nội dung&nbsp; / &nbsp;Hồ sơ nội bộ</p><h1>Nội dung cần xem xét</h1><p>Xem toàn bộ nội dung đã sản xuất, bằng chứng chất lượng, media, nguồn và lịch sử quyết định trong cùng một nơi.</p></div><div className="content-workspace__summary"><strong>{jobs.filter((job) => contentReviewState(job)).length}</strong><span>hồ sơ có thể xem</span></div></header><nav className="content-filters" aria-label="Lọc nội dung theo trạng thái">{contentFilterOptions.map((item) => { const count = filterContentJobs(jobs, item.id).length; return <button type="button" key={item.id} className={filter === item.id ? "is-active" : ""} onClick={() => onFilter(item.id)}><span>{item.label}</span><strong>{count}</strong></button>; })}</nav><div className="content-workspace__grid"><aside className="content-library"><div className="content-library__heading"><h2>{contentStatusCopy[filter]?.label}</h2><span>{visibleJobs.length} hồ sơ</span></div>{visibleJobs.length ? <ul>{visibleJobs.map((job) => { const state = job.state ?? job; const id = job.jobId ?? state.jobId; const selected = id === selectedJob?.jobId || id === selectedJob?.state?.jobId; return <li key={id}><button className={selected ? "is-selected" : ""} type="button" onClick={() => onSelectJob(id)}><div><ContentStateLabel state={contentReviewState(job)} /><time>{formatManagerDate(state.updatedAt)}</time></div><strong>{state.title || id}</strong><p>{state.campaignSummary || state.managerTaskDescription || "Hồ sơ nội dung nội bộ"}</p><span>Xem nội dung chi tiết <ArrowRight /></span></button></li>; })}</ul> : <div className="content-library__empty"><FileText size={28} /><p>Không có hồ sơ ở trạng thái này.</p></div>}</aside><ContentRecordDetail selectedJob={selectedJob} recordState={recordState} onDecision={onDecision} brandName={brandName} /></div></main>;
 }
 
 function PlaceholderModule({ name, onBack }) {
@@ -1062,5 +1186,5 @@ export function App() {
   };
 
   if (loading) return <LoadingView />;
-  return <div className="canvas-shell"><Sidebar activeNav={activeNav} onNavigate={setActiveNav} runtime={runtime} /><div className="canvas-app"><AppHeader organization={data.organization} runtime={runtime} onCreate={() => setShowCreate(true)} />{activeNav === "Tổng quan" ? <main className="dashboard"><div className="dashboard__primary"><CampaignHeader campaign={data.campaign} quality={data.quality} /><Workflow stages={data.workflow} selectedStage={selectedStage} onSelect={setSelectedStage} /><TaskReview task={visibleTask} busy={busy} onDecision={(type) => openDecision(type, data.currentTask?.jobId ?? data.currentTask?.id)} review={review} onCopyHandoff={copyHandoffPrompt} onOpenContent={() => { setSelectedContentJobId(data.currentTask?.jobId ?? data.currentTask?.id ?? ""); setActiveNav("Nội dung"); }} allowHandoff={connectionMode === "connected"} ownerDecisionBoundary={data.ownerDecisionBoundary} /></div><aside className="dashboard__rail"><TeamPanel team={effectiveTeam} activity={data.activity} /><ChecklistPanel items={effectiveChecklist} /></aside></main> : activeNav === "Nội dung" ? <ContentWorkspace jobs={data.jobs} filter={contentFilter} onFilter={setContentFilter} selectedJobId={selectedContentJobId} onSelectJob={setSelectedContentJobId} recordState={contentRecord} onDecision={openDecision} /> : <main className="dashboard dashboard--placeholder"><PlaceholderModule name={activeNav} onBack={() => setActiveNav("Tổng quan")} /></main>}</div>{decision && <DecisionModal decision={decision} busy={busy} onClose={() => { setDecision(null); setDecisionJobId(""); }} onSubmit={submitDecision} />}{showCreate && <CreateTaskModal busy={busy} onClose={() => setShowCreate(false)} onSubmit={createTask} />}<Toast toast={toast} onDismiss={() => setToast(null)} /></div>;
+  return <div className="canvas-shell"><Sidebar activeNav={activeNav} onNavigate={setActiveNav} runtime={runtime} /><div className="canvas-app"><AppHeader organization={data.organization} runtime={runtime} onCreate={() => setShowCreate(true)} />{activeNav === "Tổng quan" ? <main className="dashboard"><div className="dashboard__primary"><CampaignHeader campaign={data.campaign} quality={data.quality} /><Workflow stages={data.workflow} selectedStage={selectedStage} onSelect={setSelectedStage} /><TaskReview task={visibleTask} busy={busy} onDecision={(type) => openDecision(type, data.currentTask?.jobId ?? data.currentTask?.id)} review={review} onCopyHandoff={copyHandoffPrompt} onOpenContent={() => { setSelectedContentJobId(data.currentTask?.jobId ?? data.currentTask?.id ?? ""); setActiveNav("Nội dung"); }} allowHandoff={connectionMode === "connected"} ownerDecisionBoundary={data.ownerDecisionBoundary} /></div><aside className="dashboard__rail"><TeamPanel team={effectiveTeam} activity={data.activity} /><ChecklistPanel items={effectiveChecklist} /></aside></main> : activeNav === "Nội dung" ? <ContentWorkspace jobs={data.jobs} filter={contentFilter} onFilter={setContentFilter} selectedJobId={selectedContentJobId} onSelectJob={setSelectedContentJobId} recordState={contentRecord} onDecision={openDecision} brandName={data.organization?.name} /> : <main className="dashboard dashboard--placeholder"><PlaceholderModule name={activeNav} onBack={() => setActiveNav("Tổng quan")} /></main>}</div>{decision && <DecisionModal decision={decision} busy={busy} onClose={() => { setDecision(null); setDecisionJobId(""); }} onSubmit={submitDecision} />}{showCreate && <CreateTaskModal busy={busy} onClose={() => setShowCreate(false)} onSubmit={createTask} />}<Toast toast={toast} onDismiss={() => setToast(null)} /></div>;
 }

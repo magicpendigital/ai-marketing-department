@@ -56,10 +56,20 @@ const maximumPreviewBytes = 32 * 1024;
 const maximumTotalPreviewBytes = 128 * 1024;
 const maximumContentRecordPreviewBytes = 512 * 1024;
 const maximumContentRecordTotalPreviewBytes = 2 * 1024 * 1024;
+const maximumImagePreviewBytes = 12 * 1024 * 1024;
+const maximumVideoPreviewBytes = 48 * 1024 * 1024;
 const previewableExtensions = new Map([
   [".json", "application/json"],
   [".md", "text/markdown; charset=utf-8"],
   [".txt", "text/plain; charset=utf-8"]
+]);
+const previewableMediaExtensions = new Map([
+  [".png", { mediaType: "image/png", mediaKind: "image" }],
+  [".jpg", { mediaType: "image/jpeg", mediaKind: "image" }],
+  [".jpeg", { mediaType: "image/jpeg", mediaKind: "image" }],
+  [".webp", { mediaType: "image/webp", mediaKind: "image" }],
+  [".mp4", { mediaType: "video/mp4", mediaKind: "video" }],
+  [".webm", { mediaType: "video/webm", mediaKind: "video" }]
 ]);
 const sensitivePreviewPattern = /(?:provider_api_key|oauth_token|subscription_token|authorization\s*:\s*bearer|\bsk-[a-z0-9_-]{12,})/i;
 const ownerDecisionBoundary = "procedural_local_user_action_not_authenticated";
@@ -308,6 +318,7 @@ const hashArtifactFile = (filePath, { captureLimit = 0 } = {}) => {
   const hash = crypto.createHash("sha256");
   const buffer = Buffer.allocUnsafe(64 * 1024);
   const captured = [];
+  let signature = Buffer.alloc(0);
   let bytes = 0;
   let initial;
   let final;
@@ -319,6 +330,7 @@ const hashArtifactFile = (filePath, { captureLimit = 0 } = {}) => {
       if (count === 0) break;
       bytes += count;
       hash.update(buffer.subarray(0, count));
+      if (signature.length < 64) signature = Buffer.concat([signature, buffer.subarray(0, Math.min(count, 64 - signature.length))]);
       if (capture) captured.push(Buffer.from(buffer.subarray(0, count)));
     }
     final = fs.fstatSync(descriptor, { bigint: true });
@@ -328,17 +340,35 @@ const hashArtifactFile = (filePath, { captureLimit = 0 } = {}) => {
   if (initial.size !== final.size || initial.mtimeNs !== final.mtimeNs || BigInt(bytes) !== final.size) {
     throw new CanvasHttpError(409, "artifact_changed_during_review", "An artifact changed while its integrity was being verified.");
   }
-  return { hash: `sha256:${hash.digest("hex")}`, bytes, previewBuffer: captured.length > 0 || bytes === 0 && captureLimit > 0 ? Buffer.concat(captured) : null };
+  return { hash: `sha256:${hash.digest("hex")}`, bytes, signature, previewBuffer: captured.length > 0 || bytes === 0 && captureLimit > 0 ? Buffer.concat(captured) : null };
+};
+
+const mediaSignatureMatches = (mediaType, signature) => {
+  if (!Buffer.isBuffer(signature)) return false;
+  if (mediaType === "image/png") return signature.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (mediaType === "image/jpeg") return signature.length >= 3 && signature[0] === 0xff && signature[1] === 0xd8 && signature[2] === 0xff;
+  if (mediaType === "image/webp") return signature.length >= 12 && signature.toString("ascii", 0, 4) === "RIFF" && signature.toString("ascii", 8, 12) === "WEBP";
+  if (mediaType === "video/mp4") return signature.length >= 8 && signature.toString("ascii", 4, 8) === "ftyp";
+  if (mediaType === "video/webm") return signature.length >= 4 && signature.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])) && signature.includes(Buffer.from("webm"));
+  return false;
 };
 
 const artifactPreview = ({
   buffer,
+  signature,
   reference,
   bytes,
   remainingBytes,
   previewByteLimit = maximumPreviewBytes,
   totalPreviewByteLimit = maximumTotalPreviewBytes
 }) => {
+  const mediaDetails = previewableMediaExtensions.get(path.extname(reference).toLowerCase());
+  if (mediaDetails) {
+    if (!mediaSignatureMatches(mediaDetails.mediaType, signature)) return { status: "refused_binary", mediaType: mediaDetails.mediaType, mediaKind: mediaDetails.mediaKind, bytes };
+    const maximumBytes = mediaDetails.mediaKind === "image" ? maximumImagePreviewBytes : maximumVideoPreviewBytes;
+    if (bytes > maximumBytes) return { status: "refused_oversize", mediaType: mediaDetails.mediaType, mediaKind: mediaDetails.mediaKind, bytes, maximumBytes };
+    return { status: "media_available", mediaType: mediaDetails.mediaType, mediaKind: mediaDetails.mediaKind, bytes };
+  }
   const mediaType = previewableExtensions.get(path.extname(reference).toLowerCase());
   if (!mediaType) return { status: "refused_binary", mediaType: "application/octet-stream", bytes };
   if (bytes > previewByteLimit) return { status: "refused_oversize", mediaType, bytes, maximumBytes: previewByteLimit };
@@ -1201,6 +1231,7 @@ export class CanvasWorkspaceStore {
       if (includePreviews) {
         preview = artifactPreview({
           buffer: current.previewBuffer,
+          signature: current.signature,
           reference: expected.reference,
           bytes: current.bytes,
           remainingBytes: totalPreviewByteLimit - previewBytes,
@@ -1352,6 +1383,41 @@ export class CanvasWorkspaceStore {
       decisionHistory: decisionHistory.reverse(),
       activity: activity.reverse(),
       externalActionAuthority
+    };
+  }
+
+  readArtifactMediaPreview(jobId, reference) {
+    if (typeof reference !== "string" || reference.length > 2048 || !artifactReferencePattern.test(reference)) {
+      throw new CanvasHttpError(400, "invalid_artifact_reference", "Media preview requires a valid tenant-relative artifact reference.");
+    }
+    const mediaDetails = previewableMediaExtensions.get(path.extname(reference).toLowerCase());
+    if (!mediaDetails) throw new CanvasHttpError(415, "media_preview_type_unsupported", "Only verified PNG, JPEG, WebP, MP4, and WebM artifacts can be previewed.");
+
+    const review = this.verifyOwnerDecisionEvidence(jobId, {
+      includePreviews: false,
+      allowedStatuses: ["awaiting_owner_decision", "accepted_internal", "revision_requested"]
+    });
+    const expected = review.artifacts.find((artifact) => artifact.reference === reference);
+    if (!expected) throw new CanvasHttpError(404, "media_artifact_not_found", "The media file is not part of the current independently reviewed work order.");
+
+    const maximumBytes = mediaDetails.mediaKind === "image" ? maximumImagePreviewBytes : maximumVideoPreviewBytes;
+    if (expected.bytes <= 0 || expected.bytes > maximumBytes) {
+      throw new CanvasHttpError(413, "media_preview_size_rejected", "The verified media file is empty or larger than the local preview limit.");
+    }
+    const filePath = assertSafeArtifactFile({ workspace: this.workspace, reference });
+    const current = hashArtifactFile(filePath, { captureLimit: maximumBytes });
+    if (current.hash !== expected.hash || current.bytes !== expected.bytes) {
+      throw new CanvasHttpError(409, "artifact_integrity_failure", "The media file changed after independent QA and cannot be previewed.");
+    }
+    if (!mediaSignatureMatches(mediaDetails.mediaType, current.signature) || !Buffer.isBuffer(current.previewBuffer)) {
+      throw new CanvasHttpError(415, "media_signature_rejected", "The file content does not match the declared image or video format.");
+    }
+    return {
+      mediaType: mediaDetails.mediaType,
+      mediaKind: mediaDetails.mediaKind,
+      bytes: current.bytes,
+      hash: current.hash,
+      content: current.previewBuffer
     };
   }
 

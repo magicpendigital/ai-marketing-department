@@ -17,6 +17,7 @@ Require an accepted brief, current ProductTruth, BrandPack, locale requirements,
 2. Create a small set of clearly distinct concepts; each concept must identify its mechanism, claim references, and uncertainty.
 3. Draft copy variants that match the required locales and keep the call to action within the product’s approved scope.
 4. Add visual direction, accessibility notes, source/provenance status, and target-surface fit without using unverified third-party material.
+   If the package requests a real image/video or an actual media edit, read `../growth-media-production/SKILL.md` before producing it. If media generation is allowed, use a media skill available in the current Coding Agent; otherwise return an honest production brief and mark the file as not produced.
 5. Attach measurement event definitions and the intended internal decision the package could inform.
 6. Mark the package as an internal draft and send it to deterministic lint and independent QA.
 

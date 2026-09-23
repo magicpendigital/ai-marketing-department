@@ -1,5 +1,7 @@
 # Start Here
 
+> **Chủ doanh nghiệp hoặc quản lý marketing:** bắt đầu từ [Hướng dẫn nhanh không cần viết code](MANAGER_QUICK_START.vi.md). Hướng dẫn cài đặt kỹ thuật cho người quản trị vẫn nằm trong tài liệu này.
+
 Use this guide to give a new business the same initial AI-marketing operating capability as every other tenant of the framework. The target is a safe, internally useful preparation system: readiness, research briefs, content drafts, independent QA, and aggregate learning notes. It is not a launch authorization.
 
 ## Decide the operating boundary first
