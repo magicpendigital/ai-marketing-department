@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-marketing-department.local/schemas/agent-work-log.schema.json",
+  "title": "Growth Canvas agent work log",
+  "description": "A manager-readable record of completed work steps. It stores outcomes and artifact references, never private chain-of-thought.",
+  "type": "object",
+  "required": ["schemaVersion", "artifactKind", "jobId", "tenantId", "workflowId", "attemptId", "createdAt", "steps"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "artifactKind": { "const": "agent_work_log" },
+    "jobId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "workflowId": { "const": "W2_content_factory" },
+    "attemptId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["stepId", "label", "workerId", "workerType", "status", "summary", "inputReferences", "outputReferences", "startedAt", "finishedAt"],
+        "properties": {
+          "stepId": { "type": "string", "pattern": "^W2\\.[1-7]$" },
+          "channelId": { "enum": ["facebook", "instagram", "linkedin", "blog"] },
+          "label": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "workerId": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,79}$" },
+          "workerType": { "enum": ["lead_agent", "sub_agent", "deterministic_gate", "independent_qa", "human_gate"] },
+          "status": { "enum": ["complete", "blocked", "skipped", "revise"] },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 1200, "description": "Concise result, decision or issue summary. Do not include hidden reasoning or private chain-of-thought." },
+          "inputReferences": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+          "outputReferences": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+          "issueCodes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,79}$" } },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "finishedAt": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

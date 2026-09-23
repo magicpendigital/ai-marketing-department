@@ -11,6 +11,7 @@
     "schemas/agent-work-order.schema.json",
     "schemas/agent-job-state.schema.json",
     "schemas/agent-run-receipt.schema.json",
+    "schemas/agent-work-log.schema.json",
     "schemas/independent-qa-verdict.schema.json",
     "schemas/canvas-workspace-registry.schema.json"
   ],

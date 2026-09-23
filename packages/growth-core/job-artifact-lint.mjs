@@ -185,6 +185,7 @@ export const computeGrowthJobArtifactLint = ({ workspace, manifest, attemptId, r
   const errors = [];
   const hardFailures = new Set();
   let primaryArtifactCount = 0;
+  const workLogs = [];
   for (const file of files) {
     const extension = path.extname(file.reference).toLowerCase();
     if ([".json", ".txt", ".md", ".csv"].includes(extension)) {
@@ -214,12 +215,61 @@ export const computeGrowthJobArtifactLint = ({ workspace, manifest, attemptId, r
           for (const error of result.errors) errors.push(error);
           for (const code of result.hardFailures) hardFailures.add(code);
         }
+        if (value?.artifactKind === "agent_work_log") {
+          workLogs.push({ reference: file.reference, value });
+          const workLogErrors = validateContractInstance(frameworkRoot, "schemas/agent-work-log.schema.json", value, file.reference);
+          if (workLogErrors.length > 0) {
+            hardFailures.add("artifact_contract_invalid");
+            errors.push(...workLogErrors);
+          }
+          if (value.jobId !== manifest.jobId || value.tenantId !== manifest.tenantId || value.workflowId !== manifest.workflowId || value.attemptId !== attemptId) {
+            hardFailures.add("artifact_contract_invalid");
+            errors.push(`${file.reference}: work-log identity must match the work order and active attempt.`);
+          }
+        }
       }
     }
   }
   if (primaryArtifactCount === 0) {
     hardFailures.add("artifact_contract_invalid");
     errors.push("The exact artifact set does not contain a concept_copy_package matching the work order.");
+  }
+  const targetChannels = Array.isArray(manifest.targetChannels) ? manifest.targetChannels : [];
+  if (targetChannels.length > 0) {
+    if (workLogs.length !== 1) {
+      hardFailures.add("artifact_contract_invalid");
+      errors.push("Channel-assigned W2 work requires exactly one agent_work_log artifact for manager review.");
+    } else {
+      const { reference, value } = workLogs[0];
+      const steps = Array.isArray(value.steps) ? value.steps : [];
+      const assignedSubagents = new Set(manifest.subagentTemplateIds || []);
+      const requiredStageWorkers = [
+        ["W2.2", "brief_expander"],
+        ["W2.3", "locale_editor"],
+        ["W2.4", "visual_accessibility_brief_checker"]
+      ];
+      if (steps.some((step) => step.channelId && !targetChannels.includes(step.channelId))) {
+        hardFailures.add("artifact_contract_invalid");
+        errors.push(`${reference}: work log contains a channel that was not assigned to this task.`);
+      }
+      for (const channelId of targetChannels) {
+        for (const [stepId, specialistId] of requiredStageWorkers) {
+          const expectedWorkerId = assignedSubagents.has(specialistId) ? specialistId : "content_studio";
+          const expectedWorkerType = expectedWorkerId === "content_studio" ? "lead_agent" : "sub_agent";
+          const step = steps.find((item) => item.stepId === stepId && item.channelId === channelId);
+          if (!step || step.status !== "complete" || step.workerId !== expectedWorkerId || step.workerType !== expectedWorkerType) {
+            hardFailures.add("artifact_contract_invalid");
+            errors.push(`${reference}: ${stepId} needs a completed result for ${channelId} from ${expectedWorkerId}.`);
+            continue;
+          }
+          const outputReferences = Array.isArray(step.outputReferences) ? step.outputReferences : [];
+          if (outputReferences.length === 0 || outputReferences.some((item) => !files.some((file) => file.reference === item))) {
+            hardFailures.add("artifact_contract_invalid");
+            errors.push(`${reference}: ${stepId} for ${channelId} must point to output artifacts included in the reviewed set.`);
+          }
+        }
+      }
+    }
   }
   const artifactBindings = files.map(({ reference, hash, bytes }) => ({ reference, hash, bytes }));
   return {

@@ -1,4 +1,4 @@
-import { mediaKindForArtifact } from "./content-preview.js";
+import { channelIdFrom, mediaKindForArtifact } from "./content-preview.js";
 
 const reviewStateByStatus = Object.freeze({
   awaiting_owner_decision: "pending",
@@ -69,19 +69,20 @@ function normalizeCopyVariants(copy) {
 function collectCopyGroups(root) {
   const groups = [];
   const seen = new Set();
-  const walk = (value, path = []) => {
+  const walk = (value, path = [], inheritedChannelId = null) => {
     if (!value || typeof value !== "object" || seen.has(value)) return;
     seen.add(value);
+    const channelId = channelIdFrom(value.channelId ?? value.channel) ?? inheritedChannelId;
     if (objectValue(value.copy)) {
       const variants = normalizeCopyVariants(value.copy);
-      if (variants.length > 0) groups.push({ id: `${path.join(".") || "root"}.copy`, label: groupLabel(value, path, groups.length), variants });
+      if (variants.length > 0) groups.push({ id: `${path.join(".") || "root"}.copy`, label: groupLabel(value, path, groups.length), channelId, variants });
     } else {
       const variants = normalizeCopyVariants(value);
-      if (variants.length > 0) groups.push({ id: path.join(".") || "root", label: groupLabel(value, path, groups.length), variants });
+      if (variants.length > 0) groups.push({ id: path.join(".") || "root", label: groupLabel(value, path, groups.length), channelId, variants });
     }
-    if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, [...path, String(index + 1)]));
+    if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, [...path, String(index + 1)], channelId));
     else Object.entries(value).forEach(([key, entry]) => {
-      if (key !== "copy" && entry && typeof entry === "object") walk(entry, [...path, key]);
+      if (key !== "copy" && entry && typeof entry === "object") walk(entry, [...path, key], channelIdFrom(key) ?? channelId);
     });
   };
   walk(root);
@@ -132,6 +133,7 @@ export function parseContentArtifacts(contentRecord) {
       mediaMetadata: parsed ? collectMetadata(parsed, mediaKeyPattern) : [],
       sourceMetadata: parsed ? collectMetadata(parsed, sourceKeyPattern) : [],
       mediaKind: mediaKindForArtifact({ ...artifact, preview }),
+      channelId: channelIdFrom(artifact.channelId ?? parsed?.channelId ?? parsed?.channel ?? parsed?.destination?.channelId),
     };
   });
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { validateContractInstance } from "./growth-framework-validator.mjs";
 
 const workspaceRoot = process.cwd();
 const readJson = (relativePath) => JSON.parse(fs.readFileSync(path.join(workspaceRoot, relativePath), "utf8"));
@@ -80,4 +81,24 @@ test("independent QA contract separates the tenant-mapped reviewer from the lead
   assert.equal(runner.independentQaBoundary.reviewerMustMatchTenantRoleMapping, true);
   assert.equal(runner.independentQaBoundary.reviewerMustDifferFromAssignedAgentRole, true);
   assert.equal(runner.independentQaBoundary.leadReceiptQualityGateStatus, "not_run");
+});
+
+test("W2 work-log contract supports manager inspection without storing private reasoning", () => {
+  const index = readJson("packages/growth-contracts/contract-index.json");
+  const workOrder = readJson("packages/growth-contracts/schemas/agent-work-order.schema.json");
+  assert.ok(index.contracts.includes("schemas/agent-work-log.schema.json"));
+  assert.deepEqual(workOrder.properties.targetChannels.items.enum, ["facebook", "instagram", "linkedin", "blog"]);
+  const valid = {
+    schemaVersion: "1.0.0", artifactKind: "agent_work_log", jobId: "work-log-job-001", tenantId: "test-tenant",
+    workflowId: "W2_content_factory", attemptId: "work-log-attempt-001", createdAt: "2026-09-23T09:00:00.000Z",
+    steps: [{
+      stepId: "W2.3", channelId: "instagram", label: "Viết copy cho Instagram", workerId: "locale_editor", workerType: "sub_agent", status: "complete",
+      summary: "Đã tạo caption và nội dung tiếng Việt theo brief; không còn lỗi locale.", inputReferences: ["briefs/approved.json"], outputReferences: ["content-drafts/instagram.json"],
+      startedAt: "2026-09-23T09:00:00.000Z", finishedAt: "2026-09-23T09:04:00.000Z"
+    }]
+  };
+  assert.deepEqual(validateContractInstance(workspaceRoot, "schemas/agent-work-log.schema.json", valid, "agent work log"), []);
+  const withPrivateReasoning = structuredClone(valid);
+  withPrivateReasoning.steps[0].chainOfThought = "private reasoning";
+  assert.ok(validateContractInstance(workspaceRoot, "schemas/agent-work-log.schema.json", withPrivateReasoning, "agent work log").length > 0);
 });

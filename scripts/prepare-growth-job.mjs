@@ -186,7 +186,37 @@ const prepareSafeOutputPath = ({ tenantRoot, outputPath }) => {
   return physicalOutput;
 };
 
-export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, adapterMode = "disabled" }) => {
+const allowedContentChannels = new Set(["facebook", "instagram", "linkedin", "blog"]);
+
+const normalizeW2Assignments = ({ workflowId, definition, targetChannels, subagentTemplateIds }) => {
+  if (targetChannels !== undefined && workflowId !== "W2_content_factory") {
+    throw new Error("Target channels are supported only for W2 content work orders.");
+  }
+  let channels;
+  if (targetChannels !== undefined) {
+    if (!Array.isArray(targetChannels) || targetChannels.length < 1 || targetChannels.length > allowedContentChannels.size
+      || targetChannels.some((channel) => typeof channel !== "string" || !allowedContentChannels.has(channel))
+      || new Set(targetChannels).size !== targetChannels.length) {
+      throw new Error("Target channels must be a non-empty, unique list of supported channel ids.");
+    }
+    channels = [...targetChannels];
+  }
+  if (subagentTemplateIds !== undefined && workflowId !== "W2_content_factory") {
+    throw new Error("Sub-agent overrides are supported only for W2 content work orders.");
+  }
+  let subagents = definition.subagentTemplateIds;
+  if (subagentTemplateIds !== undefined) {
+    if (!Array.isArray(subagentTemplateIds)
+      || new Set(subagentTemplateIds).size !== subagentTemplateIds.length
+      || subagentTemplateIds.some((id) => typeof id !== "string" || !definition.subagentTemplateIds.includes(id))) {
+      throw new Error("W2 sub-agents must be unique ids from the approved content-team roster.");
+    }
+    subagents = [...subagentTemplateIds];
+  }
+  return { channels, subagents };
+};
+
+export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, adapterMode = "disabled", targetChannels, subagentTemplateIds }) => {
   if (!jobDefinitions[workflowId]) throw new Error(`Unsupported internal workflow: ${workflowId || "unknown"}.`);
   if (!jobIdPattern.test(jobId || "")) throw new Error("Job id must use lowercase letters, digits, and hyphens, and be 3–80 characters long.");
   if (!allowedAdapterModes.has(adapterMode)) throw new Error("Adapter mode must be disabled, mock, owner_configured, or coding_agent_handoff.");
@@ -200,6 +230,10 @@ export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, ad
   }
   const tenantConfig = JSON.parse(fs.readFileSync(path.join(resolvedTenantRoot, "tenant-config.json"), "utf8"));
   const definition = jobDefinitions[workflowId];
+  const assignments = normalizeW2Assignments({ workflowId, definition, targetChannels, subagentTemplateIds });
+  const channelInstruction = assignments.channels?.length
+    ? ` Produce a separate, channel-specific content package for each assigned target channel (${assignments.channels.join(", ")}); tag every copy and media item with its channelId and never reuse an untagged generic variant across channels.`
+    : " If target channels are not present, stop and ask the owner to create a new work order with explicit channels before drafting channel-specific content.";
   const job = {
     schemaVersion: "1.0.0",
     workOrderVersion: "1.0.0",
@@ -211,8 +245,8 @@ export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, ad
     lifecycleState: "prepared",
     requestedCapability: definition.requestedCapability,
     assignedAgentRole: definition.assignedAgentRole,
-    subagentTemplateIds: definition.subagentTemplateIds,
-    taskDescription: definition.taskDescription,
+    subagentTemplateIds: assignments.subagents,
+    taskDescription: `${definition.taskDescription}${channelInstruction}`,
     managerReview: definition.managerReview,
     inputArtifactReferences: definition.inputArtifactReferences,
     outputArtifactType: definition.outputArtifactType,
@@ -226,6 +260,7 @@ export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, ad
       : ["redact_and_store_internal_draft", "run_deterministic_lint", "run_independent_qa", "await_human_decision"],
     hardStop: "This manifest prepares an internal job only. It cannot invoke a provider, access a credential, publish, send, schedule, create a campaign, upload an audience, spend money, or change a product."
   };
+  if (assignments.channels) job.targetChannels = assignments.channels;
   const safeOutputPath = prepareSafeOutputPath({ tenantRoot: resolvedTenantRoot, outputPath: resolvedOutput });
   const fileDescriptor = fs.openSync(safeOutputPath, "wx", 0o600);
   try {

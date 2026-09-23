@@ -899,7 +899,7 @@ export class CanvasWorkspaceStore {
     return resolveInsideWorkspace(this.workspace, "operations", "jobs", jobId);
   }
 
-  createW2Job({ jobId, title, campaignSummary, managerTaskDescription }) {
+  createW2Job({ jobId, title, campaignSummary, managerTaskDescription, targetChannels, subagentTemplateIds }) {
     assertJobId(jobId);
     const normalizedTitle = assertString(title, "title", { required: true, maxLength: 120 });
     const normalizedSummary = assertString(campaignSummary, "campaignSummary", { maxLength: 1000 });
@@ -925,7 +925,9 @@ export class CanvasWorkspaceStore {
         workflowId: "W2_content_factory",
         outputPath: manifestPath,
         jobId,
-        adapterMode: "coding_agent_handoff"
+        adapterMode: "coding_agent_handoff",
+        targetChannels,
+        subagentTemplateIds
       });
       const manifestText = fs.readFileSync(manifestPath, "utf8");
       const createdAt = nowIso();
@@ -1030,11 +1032,16 @@ export class CanvasWorkspaceStore {
         command: `node scripts/complete-growth-job.mjs ${commonCommand} --receipt ${quoteCommandArgument(receiptInputPath)}`
       }
     ];
+    const workLogPath = path.join(this.workspace, "operations", "jobs", jobId, "attempts", attemptId, "artifacts", "agent-work-log.json");
+    const channelInstruction = manifest.targetChannels?.length
+      ? `The immutable targetChannels are ${manifest.targetChannels.join(", ")}. Produce one channel-specific content/media package per id and tag each copy/media record with its channelId.`
+      : "This work order has no targetChannels because it predates channel assignment. Do not invent a platform or produce a generic multi-channel asset; stop and ask the owner to create a new task with explicit channels.";
     const handoffPrompt = [
       `Execute the tenant-scoped W2 work order ${jobId} through its local filesystem lifecycle.`,
-      "First read AGENTS.md, docs/AGENT_TASK_ROUTER.md, docs/PLAN_QC_PROTOCOL.md, and the immutable manifest path below.",
-      `Run the claim command before creating artifacts. Create only internal artifacts inside ${this.workspace}; do not publish, send, schedule, upload audiences, create campaigns, or spend.`,
+      `First read AGENTS.md, docs/AGENT_TASK_ROUTER.md, docs/PLAN_QC_PROTOCOL.md, and the immutable work-order manifest at ${manifestPath}.`,
+      `Run the claim command before creating artifacts. Create only internal artifacts inside ${this.workspace}; do not publish, send, schedule, upload audiences, create campaigns, or spend. ${channelInstruction}`,
       "Use the manifest's assigned lead and sub-agent roles. Delegate quality review to the tenant-mapped quality_assurance role, which must differ from the assigned lead.",
+      `Create a manager-readable work log at ${workLogPath} that validates against packages/growth-contracts/schemas/agent-work-log.schema.json. Include one concise outcome row per completed/blocked workflow step and per target channel, with role/template id, timestamps, input/output artifact references and issue codes. Add the work log to the same artifactReferences reviewed by independent QA. Record outcomes only; never include hidden chain-of-thought.`,
       `Have that independent reviewer write ${qaInputPath}, then run the independent QA command. The lead must write ${receiptInputPath} with qualityGateStatus set to not_run, then run the completion command.`,
       "Stop when the job reaches awaiting_owner_decision so the manager can inspect the verified review bundle. This handoff does not provide an automatic queue, login, unattended authentication, or provider credentials."
     ].join("\n\n");
@@ -1375,6 +1382,7 @@ export class CanvasWorkspaceStore {
       title: job.state.title,
       campaignSummary: job.state.campaignSummary,
       managerTaskDescription: job.state.managerTaskDescription,
+      targetChannels: job.manifest.targetChannels ?? [],
       createdAt: job.state.createdAt,
       updatedAt: job.state.updatedAt,
       ownerDecision: job.state.ownerDecision || null,

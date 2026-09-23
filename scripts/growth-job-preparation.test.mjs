@@ -85,6 +85,39 @@ test("coding-agent handoff creates a provider-neutral work order without request
   });
 });
 
+test("W2 work orders freeze explicitly selected channels and an allowlisted sub-agent assignment", () => {
+  withReadyTenant((tenantRoot) => {
+    const jobId = "channel-assignment-001";
+    const job = prepareGrowthJob({
+      tenantRoot,
+      workflowId: "W2_content_factory",
+      outputPath: path.join(tenantRoot, "jobs", `${jobId}.json`),
+      jobId,
+      adapterMode: "coding_agent_handoff",
+      targetChannels: ["instagram", "blog"],
+      subagentTemplateIds: ["locale_editor"]
+    });
+    assert.deepEqual(job.targetChannels, ["instagram", "blog"]);
+    assert.deepEqual(job.subagentTemplateIds, ["locale_editor"]);
+    assert.match(job.taskDescription, /separate, channel-specific content package/i);
+    assert.match(job.taskDescription, /tag every copy and media item with its channelId/i);
+    assert.throws(() => prepareGrowthJob({
+      tenantRoot,
+      workflowId: "W2_content_factory",
+      outputPath: path.join(tenantRoot, "jobs", "invalid-channel-001.json"),
+      jobId: "invalid-channel-001",
+      targetChannels: ["x-social"]
+    }), /supported channel ids/i);
+    assert.throws(() => prepareGrowthJob({
+      tenantRoot,
+      workflowId: "W2_content_factory",
+      outputPath: path.join(tenantRoot, "jobs", "invalid-agent-001.json"),
+      jobId: "invalid-agent-001",
+      subagentTemplateIds: ["unreviewed_agent"]
+    }), /approved content-team roster/i);
+  });
+});
+
 test("work-order role, subagent and manager-review metadata are defined for every supported workflow", () => {
   withReadyTenant((tenantRoot) => {
     const workflows = ["W0_readiness", "W1_research_to_plan", "W2_content_factory", "W6_learning_to_product"];

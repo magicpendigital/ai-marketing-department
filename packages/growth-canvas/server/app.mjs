@@ -252,7 +252,7 @@ export const createCanvasRequestHandler = ({ workspace, accessCapability = crypt
 
         if (request.method === "POST" && route.name === "/api/jobs") {
           const body = await readJsonBody(request);
-          assertExactKeys(body, ["jobId", "workflowId", "title", "campaignSummary", "managerTaskDescription"]);
+          assertExactKeys(body, ["jobId", "workflowId", "title", "campaignSummary", "managerTaskDescription", "targetChannels", "subagentTemplateIds"]);
           if (body.workflowId !== undefined && body.workflowId !== "W2_content_factory") {
             throw new CanvasHttpError(400, "workflow_not_supported", "Canvas alpha creates W2_content_factory jobs only.");
           }

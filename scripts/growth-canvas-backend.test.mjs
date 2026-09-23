@@ -93,6 +93,26 @@ const passingSoftScores = () => ({
   operational_traceability_reuse: 4
 });
 
+const buildChannelWorkLog = ({ jobId, tenantId, channels }) => {
+  const attemptId = `${jobId}-attempt`;
+  const outputReference = `operations/jobs/${jobId}/artifacts/concept-package.json`;
+  const stages = [
+    ["W2.2", "Develop channel-specific concept", "brief_expander"],
+    ["W2.3", "Write channel copy and locale", "locale_editor"],
+    ["W2.4", "Prepare media and accessibility brief", "visual_accessibility_brief_checker"]
+  ];
+  const steps = channels.flatMap((channelId, channelIndex) => stages.map(([stepId, label, workerId], stageIndex) => {
+    const startedAt = new Date(Date.UTC(2026, 8, 23, 9, channelIndex * 12 + stageIndex * 3)).toISOString();
+    const finishedAt = new Date(Date.parse(startedAt) + 120_000).toISOString();
+    return {
+      stepId, channelId, label: `${label} · ${channelId}`, workerId, workerType: "sub_agent", status: "complete",
+      summary: `Completed the ${stepId} handoff for ${channelId}; linked output is included in the reviewed package.`,
+      inputReferences: ["briefs/approved.json"], outputReferences: [outputReference], startedAt, finishedAt
+    };
+  }));
+  return `${JSON.stringify({ schemaVersion: "1.0.0", artifactKind: "agent_work_log", jobId, tenantId, workflowId: "W2_content_factory", attemptId, createdAt: "2026-09-23T09:20:00.000Z", steps }, null, 2)}\n`;
+};
+
 const runReviewedLifecycle = ({ tenantRoot, store, jobId, artifacts }) => {
   const claimedAt = new Date(Date.now() - 1_000);
   const attemptId = `${jobId}-attempt`;
@@ -318,6 +338,26 @@ test("Canvas creates one immutable W2 work order and rejects a duplicate", async
   });
 });
 
+test("Canvas persists assigned channels and an editable approved W2 support roster", async () => {
+  const tenantRoot = createTenant({ tenantId: "channel-assignment-tenant" });
+  await withServer(tenantRoot, async (runtime) => {
+    const input = { ...jobInput("channel-assignment-job"), targetChannels: ["facebook", "linkedin"], subagentTemplateIds: ["locale_editor", "brief_expander"] };
+    const created = await api(runtime, "/api/jobs", { method: "POST", body: input });
+    assert.equal(created.status, 201);
+    assert.deepEqual(created.body.manifest.targetChannels, ["facebook", "linkedin"]);
+    assert.deepEqual(created.body.manifest.subagentTemplateIds, ["locale_editor", "brief_expander"]);
+    assert.match(created.body.handoff.prompt, /targetChannels are facebook, linkedin/i);
+    assert.match(created.body.handoff.prompt, /agent-work-log\.schema\.json/i);
+    assert.match(created.body.handoff.prompt, /never include hidden chain-of-thought/i);
+
+    const fetched = await api(runtime, "/api/jobs/channel-assignment-job");
+    assert.equal(fetched.status, 200);
+    assert.deepEqual(fetched.body.manifest.targetChannels, input.targetChannels);
+    const persisted = JSON.parse(fs.readFileSync(path.join(tenantRoot, "operations", "jobs", input.jobId, "manifest.json"), "utf8"));
+    assert.deepEqual(persisted.targetChannels, input.targetChannels);
+  });
+});
+
 test("Bootstrap reads the nested experiment and derives manager-facing fallbacks", async () => {
   const tenantRoot = createTenant({ tenantId: "manager-view-tenant" });
   const experimentPath = path.join(tenantRoot, "campaigns", "experiment-brief.json");
@@ -517,7 +557,7 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
   const store = createCanvasWorkspaceStore({ workspace: tenantRoot });
   await withServer(tenantRoot, async (runtime) => {
     const jobId = "verified-review-job";
-    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: jobInput(jobId) })).status, 201);
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: { ...jobInput(jobId), targetChannels: ["facebook", "instagram"] } })).status, 201);
     const lifecycle = runReviewedLifecycle({
       tenantRoot,
       store,
@@ -525,7 +565,8 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
       artifacts: [
         { name: "concept.json", content: `${JSON.stringify({ title: "Internal concept", action: "manager review" }, null, 2)}\n` },
         { name: "long-notes.txt", content: "x".repeat(33 * 1024) },
-        { name: "visual.png", content: Buffer.from([0, 1, 2, 3, 255, 0, 128]) }
+        { name: "visual.png", content: Buffer.from([0, 1, 2, 3, 255, 0, 128]) },
+        { name: "agent-work-log.json", content: buildChannelWorkLog({ jobId, tenantId: store.tenantId, channels: ["facebook", "instagram"] }) }
       ]
     });
     assert.equal(lifecycle.completed.job.state.status, "awaiting_owner_decision");
@@ -550,6 +591,7 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
     assert.equal(Object.hasOwn(previews.get("long-notes.txt"), "content"), false);
     assert.equal(previews.get("visual.png").status, "refused_binary");
     assert.equal(Object.hasOwn(previews.get("visual.png"), "content"), false);
+    assert.equal(previews.get("agent-work-log.json").status, "available");
 
     const accepted = await api(runtime, `/api/jobs/${jobId}/decision`, {
       method: "POST",
@@ -571,6 +613,7 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
     const contentRecord = await api(runtime, `/api/jobs/${jobId}/content-record`);
     assert.equal(contentRecord.status, 200);
     assert.equal(contentRecord.body.recordStatus, "accepted_internal");
+    assert.deepEqual(contentRecord.body.targetChannels, ["facebook", "instagram"]);
     assert.equal(contentRecord.body.review.readyForOwnerDecision, false);
     assert.equal(contentRecord.body.review.verification.artifactIntegrity, "verified");
     const contentPreviews = new Map(contentRecord.body.review.artifacts.map((artifact) => [path.basename(artifact.reference), artifact.preview]));
@@ -582,6 +625,16 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
     assert.equal(contentRecord.body.versions[0].attemptId, lifecycle.attemptId);
     assert.equal(contentRecord.body.versions[0].ownerDecision, "accept");
     assert.equal(contentRecord.body.decisionHistory[0].reason, "The verified internal candidate meets the review checklist.");
+  });
+});
+
+test("Channel-assigned content cannot pass deterministic review without channel-stage work logs", async () => {
+  const tenantRoot = createTenant({ tenantId: "work-log-required-tenant" });
+  const store = createCanvasWorkspaceStore({ workspace: tenantRoot });
+  await withServer(tenantRoot, async (runtime) => {
+    const jobId = "work-log-required-job";
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: { ...jobInput(jobId), targetChannels: ["facebook"] } })).status, 201);
+    assert.throws(() => runReviewedLifecycle({ tenantRoot, store, jobId, artifacts: [] }), /agent_work_log/i);
   });
 });
 

@@ -35,7 +35,7 @@ npm run canvas:build
 npm run canvas:start -- --workspace <private-tenant-directory> --port 4310
 ```
 
-The server binds to `127.0.0.1` by default and prints a private local URL containing an ephemeral per-process capability in the URL fragment. Open that exact URL. The UI keeps the capability only for the current browser session and removes it from the visible address after capture. A single process accepts exactly one tenant workspace. Restarting the server creates a new capability; stop it with `Ctrl+C`.
+The server binds to `127.0.0.1` by default and prints a private local URL containing an ephemeral per-process capability in the URL fragment. Open that exact URL. The UI keeps the capability only for the current browser session and removes it from the visible address after capture. To open another browser on the same machine, use **Sao chép link riêng** in the connected Canvas header. Treat this as a bearer access link; do not share it. A single process accepts exactly one tenant workspace. Restarting the server creates a new capability; stop it with `Ctrl+C`.
 
 During UI-only development, `npm run canvas:dev` starts Vite with a tenant-neutral fallback dataset. The production local pilot should use `canvas:start` so UI and API share one loopback origin.
 
@@ -48,11 +48,14 @@ During UI-only development, `npm run canvas:dev` starts Vite with a tenant-neutr
 5. Tell the Coding Agent to read `AGENTS.md`, the matching skill, and the exact job manifest before it claims the job.
 6. Have the tenant-mapped `quality_assurance` role run the independent review, then watch the job move from `in_progress` to owner review, repair, or blocked.
 7. Open **Nội dung** in the left navigation. Use **Cần duyệt**, **Đã duyệt**, or **Cần sửa** to find the record, then select it from the list. A zero count shows an explicit empty message; it is not a blank workspace.
-8. Read **Nội dung đầy đủ** for every produced copy variant. Use **Preview theo kênh** to simulate Facebook, Instagram, LinkedIn, or blog layouts and compare locale, copy concept, and any hash-verified image/video file attached to the work order. When more than one file is attached, select the intended one manually; this alpha does not yet bind every copy variant to a specific media file in the package. The simulation is advisory and does not guarantee pixel-perfect rendering on a live platform.
+8. Read **Nội dung đầy đủ** for every produced copy variant. The manager selects one or more target channels when creating the task; the immutable work order stores them. The preview lists only those channels. For a multi-channel task, every variant/media item must carry its matching `channelId`; an untagged generic variant is not reused. The preview compares locale, copy, and any hash-verified image/video file attached to the work order. The simulation is advisory and does not guarantee pixel-perfect rendering on a live platform.
 9. Use **Media & nguồn** for supplied visual/media instructions, rights, sources, and provenance; **Chất lượng** for independent QA; and **Phiên bản & quyết định** for attempts and owner reasons. Raw JSON and hashes stay in the collapsed evidence view.
 10. For a record in **Cần duyệt**, record a reason when approving it internally or requesting a revision. An internal approval does not grant any external-action authority.
+11. Open **Quy trình** to inspect all framework agents, sub-agents, and the W0/W1/W2/W6 flow. W2 support sub-agents can be changed for future tasks; the lead is capability-bound. Open **Quy trình & kết quả** on a content record to inspect the current attempt's `agent-work-log.json`. New channel-assigned jobs cannot pass deterministic QA without exactly one valid log containing completed concept, copy, and media/accessibility results for every assigned channel, linked to artifacts in the reviewed set. It records outcome summaries, roles, channel, timings, input/output references, and issue codes, never private chain-of-thought. Older unassigned jobs may not have a log.
 
-The interface never treats `queued` or `in_progress` as completed work. A quality score is a gate summary, not proof of campaign performance.
+The interface never treats `queued` or `in_progress` as completed work. A quality score is a gate summary, not proof of campaign performance. Internal approval is separate from publishing. The current alpha has no connected publisher, post receipt, scheduler, ad account, or post-publication analytics; see [Content lifecycle and reporting](CONTENT_LIFECYCLE_AND_REPORTING.vi.md).
+
+Creating a work order only stores a task. To start it, open the Dashboard, copy the full handoff prompt, paste it into a user-authorized Coding Agent session with access to the selected framework and tenant, and send it. The Canvas does not start a background agent. It also does not schedule recurring work; a schedule would need a supported runtime queue and explicit credentials/authorization boundary, which are not available in this alpha.
 
 ## Coding Agent lifecycle
 
