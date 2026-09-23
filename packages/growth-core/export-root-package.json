@@ -1,19 +1,26 @@
 {
   "name": "growth-framework",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0-alpha.1",
   "engines": {
     "node": ">=22 <23"
   },
   "workspaces": ["packages/*"],
   "scripts": {
     "validate": "node scripts/validate-growth-framework.mjs",
-    "test": "node --test scripts/growth-framework.test.mjs scripts/growth-tenant-onboarding.test.mjs scripts/growth-tenant-artifacts.test.mjs scripts/growth-job-preparation.test.mjs scripts/growth-two-tenant-demo.test.mjs scripts/growth-tenant-learning-export.test.mjs",
+    "test": "node --test scripts/growth-framework.test.mjs scripts/growth-tenant-onboarding.test.mjs scripts/growth-tenant-artifacts.test.mjs scripts/growth-job-preparation.test.mjs scripts/growth-two-tenant-demo.test.mjs scripts/growth-tenant-learning-export.test.mjs scripts/growth-canvas-contracts.test.mjs scripts/growth-canvas-backend.test.mjs scripts/growth-job-lifecycle.test.mjs scripts/media-supervisor-contracts.test.mjs",
+    "canvas:build": "npm run build --workspace growth-canvas",
+    "canvas:dev": "npm run dev --workspace growth-canvas",
+    "canvas:start": "npm run start --workspace growth-canvas --",
+    "canvas:test": "node --test scripts/growth-canvas-contracts.test.mjs scripts/growth-canvas-backend.test.mjs scripts/growth-job-lifecycle.test.mjs && npm run test:sites --workspace growth-canvas",
     "tenant:init": "node scripts/init-growth-tenant.mjs",
     "tenant:validate": "node scripts/validate-growth-tenant.mjs",
     "tenant:demo:validate": "node scripts/validate-growth-tenant-demo.mjs",
     "tenant:artifact:validate": "node scripts/validate-growth-tenant-artifacts.mjs",
     "tenant:job:prepare": "node scripts/prepare-growth-job.mjs",
+    "tenant:job:claim": "node scripts/claim-growth-job.mjs",
+    "tenant:job:review": "node scripts/review-growth-job.mjs",
+    "tenant:job:complete": "node scripts/complete-growth-job.mjs",
     "tenant:two:validate": "node scripts/growth-two-tenant-demo.mjs",
     "tenant:learning:validate": "node scripts/validate-growth-tenant-learning-export.mjs",
     "tenant:learning:compare": "node scripts/compare-growth-tenant-learning-exports.mjs",

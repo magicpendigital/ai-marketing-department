@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "0.1.0-incubating",
+  "decisionId": "supervisor-decision-shadow-001",
+  "tenantId": "example-studio",
+  "createdAt": "2026-09-23T09:00:00Z",
+  "mode": "shadow",
+  "status": "recorded_shadow",
+  "artifact": {
+    "artifactId": "internal-content-001",
+    "artifactVersion": "1.0.0",
+    "artifactHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "artifactKind": "concept_copy_package",
+    "decisionDomain": "internal_content_review"
+  },
+  "policy": {
+    "policyId": "supervisor-policy-001",
+    "policyVersion": "1.0.0",
+    "policyHash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "scorecard": {
+    "calibratedConfidence": 0.94,
+    "evidenceCoverage": 1,
+    "precedentSimilarity": 0.91,
+    "novelty": 0.08,
+    "risk": 0.07,
+    "impactClass": "low",
+    "calibrationMethodRef": "calibration:explicit-rules-plus-held-out-owner-decisions"
+  },
+  "matchedRules": ["rule:current-evidence", "rule:brand-fit", "rule:single-clear-action"],
+  "hardFailureCodes": [],
+  "authorityCheck": {
+    "domainEnabled": true,
+    "decisionAllowed": true,
+    "insidePreauthorizedEnvelope": false,
+    "separationOfDutiesPass": true,
+    "thresholdsPass": true
+  },
+  "result": {
+    "proposedDecision": "request_revision",
+    "reasonCodes": ["cta_not_specific_enough"],
+    "explanation": "The draft is evidence-bound and on-brand, but its action is less specific than the owner's verified preference and closest precedents.",
+    "applied": false,
+    "appliedDecision": null
+  },
+  "escalation": {
+    "required": false,
+    "triggerCodes": [],
+    "ownerRole": "business_owner",
+    "deadlineClass": "none"
+  },
+  "humanComparison": {
+    "humanDecision": "request_revision",
+    "humanReasonCodes": ["cta_not_specific_enough"],
+    "agreement": "match",
+    "reviewedAt": "2026-09-23T09:10:00Z",
+    "reviewerRole": "business_owner"
+  },
+  "externalAction": {
+    "requested": false,
+    "performed": false,
+    "executionEnvelopeRef": null,
+    "receiptRef": null
+  },
+  "audit": {
+    "eventChainRef": "audit:supervisor-shadow-evaluation",
+    "previousEventHash": null,
+    "eventHash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "producerRole": "content_studio",
+    "supervisorRole": "pro_supervisor_shadow",
+    "qaRole": "independent_qa"
+  }
+}

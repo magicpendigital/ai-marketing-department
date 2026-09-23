@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/growth-contracts/extensions/supervisor-decision-record.schema.json",
+  "title": "Supervisor Decision Record",
+  "description": "An auditable shadow, advisory, or bounded-autonomy decision bound to an exact artifact and exact Supervisor policy version.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "decisionId",
+    "tenantId",
+    "createdAt",
+    "mode",
+    "status",
+    "artifact",
+    "policy",
+    "scorecard",
+    "matchedRules",
+    "hardFailureCodes",
+    "authorityCheck",
+    "result",
+    "escalation",
+    "humanComparison",
+    "externalAction",
+    "audit"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "0.1.0-incubating" },
+    "decisionId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "mode": { "enum": ["shadow", "advisory", "bounded_autonomy"] },
+    "status": { "enum": ["recorded_shadow", "recommendation_ready", "applied_inside_envelope", "escalated", "blocked"] },
+    "artifact": {
+      "type": "object",
+      "required": ["artifactId", "artifactVersion", "artifactHash", "artifactKind", "decisionDomain"],
+      "properties": {
+        "artifactId": { "type": "string" },
+        "artifactVersion": { "type": "string" },
+        "artifactHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "artifactKind": { "type": "string" },
+        "decisionDomain": { "enum": ["internal_content_review", "revision_direction", "creative_variant_selection", "media_source_compliance", "preauthorized_channel_execution", "preauthorized_budget_operation"] }
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "required": ["policyId", "policyVersion", "policyHash"],
+      "properties": {
+        "policyId": { "type": "string" },
+        "policyVersion": { "type": "string" },
+        "policyHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "scorecard": {
+      "type": "object",
+      "required": ["calibratedConfidence", "evidenceCoverage", "precedentSimilarity", "novelty", "risk", "impactClass", "calibrationMethodRef"],
+      "properties": {
+        "calibratedConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidenceCoverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "precedentSimilarity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "novelty": { "type": "number", "minimum": 0, "maximum": 1 },
+        "risk": { "type": "number", "minimum": 0, "maximum": 1 },
+        "impactClass": { "enum": ["low", "medium", "high", "critical"] },
+        "calibrationMethodRef": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "matchedRules": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "hardFailureCodes": { "type": "array", "items": { "type": "string" } },
+    "authorityCheck": {
+      "type": "object",
+      "required": ["domainEnabled", "decisionAllowed", "insidePreauthorizedEnvelope", "separationOfDutiesPass", "thresholdsPass"],
+      "properties": {
+        "domainEnabled": { "type": "boolean" },
+        "decisionAllowed": { "type": "boolean" },
+        "insidePreauthorizedEnvelope": { "type": "boolean" },
+        "separationOfDutiesPass": { "type": "boolean" },
+        "thresholdsPass": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "required": ["proposedDecision", "reasonCodes", "explanation", "applied", "appliedDecision"],
+      "properties": {
+        "proposedDecision": { "enum": ["accept_internal", "request_revision", "reject_internal", "select_variant", "approve_inside_preauthorized_envelope", "escalate"] },
+        "reasonCodes": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "explanation": { "type": "string" },
+        "applied": { "type": "boolean" },
+        "appliedDecision": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "escalation": {
+      "type": "object",
+      "required": ["required", "triggerCodes", "ownerRole", "deadlineClass"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "triggerCodes": { "type": "array", "items": { "type": "string" } },
+        "ownerRole": { "type": "string" },
+        "deadlineClass": { "enum": ["none", "routine", "urgent", "immediate_block"] }
+      },
+      "additionalProperties": false
+    },
+    "humanComparison": {
+      "type": "object",
+      "required": ["humanDecision", "humanReasonCodes", "agreement", "reviewedAt", "reviewerRole"],
+      "properties": {
+        "humanDecision": { "type": ["string", "null"] },
+        "humanReasonCodes": { "type": "array", "items": { "type": "string" } },
+        "agreement": { "enum": ["pending", "match", "partial", "mismatch"] },
+        "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+        "reviewerRole": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "externalAction": {
+      "type": "object",
+      "required": ["requested", "performed", "executionEnvelopeRef", "receiptRef"],
+      "properties": {
+        "requested": { "type": "boolean" },
+        "performed": { "type": "boolean" },
+        "executionEnvelopeRef": { "type": ["string", "null"] },
+        "receiptRef": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "audit": {
+      "type": "object",
+      "required": ["eventChainRef", "previousEventHash", "eventHash", "producerRole", "supervisorRole", "qaRole"],
+      "properties": {
+        "eventChainRef": { "type": "string" },
+        "previousEventHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "eventHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "producerRole": { "type": "string" },
+        "supervisorRole": { "type": "string" },
+        "qaRole": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "shadow" } } },
+      "then": {
+        "properties": {
+          "result": {
+            "properties": {
+              "applied": { "const": false },
+              "appliedDecision": { "type": "null" }
+            }
+          },
+          "externalAction": {
+            "properties": {
+              "performed": { "const": false },
+              "receiptRef": { "type": "null" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

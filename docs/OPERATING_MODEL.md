@@ -55,9 +55,11 @@ Every W1 or W2 artifact must have:
 
 Changes to copy, visual brief, claim reference, destination, target channel, schedule, or budget invalidate any prior approval envelope.
 
+For a Canvas job, the work-order lead writes only the lead run receipt and must leave `qualityGateStatus` as `not_run`. Before an independent reviewer can record a pass, the framework computes `deterministic-lint.json` from the exact artifact bytes plus current BrandPack, ProductTruth, and role-mapping bytes. The receipt validates the W2 `concept_copy_package` contract, internal-only authority, claim evidence, locale/accessibility coverage, rights/provenance, sensitive-data rules, and hard-fail copy patterns. A separate role resolved from the tenant's `quality_assurance` mapping writes `qa-verdict.json`; that role must differ from the assigned lead and bind the active claim attempt to the same SHA-256 and byte count of every reviewed artifact. Completion and owner review recompute the deterministic receipt and rehash those artifacts, so a reviewer cannot self-declare lint success. A revision archives the prior attempt records and artifact bytes before a new attempt may begin.
+
 ## Quality controls
 
-Hard failures block the artifact. Examples include unsupported or expired claims, deterministic prediction, sensitive advice or guarantees, persona impersonation, unknown rights, data leakage, missing provenance, localization/accessibility failure, cross-tenant leakage, stale approval, and duplicate execution intent.
+Hard failures block the artifact. Examples include a malformed artifact contract, unsupported or expired claims, deterministic prediction, sensitive advice or guarantees, persona impersonation, unknown rights, data leakage, missing provenance, localization/accessibility failure, cross-tenant leakage, stale approval, and duplicate execution intent.
 
 Soft quality dimensions score audience relevance, differentiated value, claim precision, editorial quality, CTA fit, visual/accessibility fit, trust, measurement quality, and operational traceability. Internal libraries require zero hard failures, no weak dimension below the threshold, an acceptable mean score, complete provenance, and limited repair cycles.
 

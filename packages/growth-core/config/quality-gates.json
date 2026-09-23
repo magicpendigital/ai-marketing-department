@@ -28,6 +28,7 @@
     }
   ],
   "hardFailCodes": [
+    "artifact_contract_invalid",
     "claim_not_ready",
     "claim_evidence_expired",
     "deterministic_prediction",

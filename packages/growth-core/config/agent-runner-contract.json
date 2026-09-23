@@ -1,12 +1,13 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "contractId": "growth_agent_runner_contract",
   "purpose": "Define a provider-neutral boundary between a validated internal marketing job and an owner-configured AI runner.",
   "defaultAdapterMode": "disabled",
   "permittedAdapterModes": [
     "disabled",
     "mock",
-    "owner_configured"
+    "owner_configured",
+    "coding_agent_handoff"
   ],
   "permittedWorkflowIds": [
     "W0_readiness",
@@ -33,6 +34,37 @@
     "qualityGateVersion",
     "idempotencyKey"
   ],
+  "codingAgentHandoffRequiredFields": [
+    "workOrderVersion",
+    "requestedCapability",
+    "assignedAgentRole",
+    "subagentTemplateIds",
+    "taskDescription",
+    "managerReview",
+    "lifecycleState",
+    "handoff"
+  ],
+  "workOrderLifecycle": [
+    "prepared",
+    "available_for_handoff",
+    "claimed_by_coding_agent",
+    "in_progress",
+    "artifact_submitted",
+    "deterministic_lint_complete",
+    "independent_qa_complete",
+    "awaiting_human_decision",
+    "repair_required",
+    "completed_internal",
+    "blocked",
+    "failed",
+    "cancelled"
+  ],
+  "adapterSemantics": {
+    "disabled": "Prepare a validated manifest and stop without making it available to a runner.",
+    "mock": "Exercise the contract with synthetic data only; no external model or credential is used.",
+    "owner_configured": "Delegate to a separately configured owner runtime without placing credentials in this repository or work order.",
+    "coding_agent_handoff": "Make a tenant-scoped work order available to a user-initiated Coding Agent session. This mode does not implement or promise headless subscription authentication."
+  },
   "forbiddenJobInputs": [
     "provider_api_key",
     "oauth_token",
@@ -51,13 +83,23 @@
     "outputReference",
     "redactionVerdict",
     "lintVerdict",
-    "qaVerdict",
+    "qualityGateStatus",
     "humanDecisionState"
   ],
+  "independentQaBoundary": {
+    "requiredCapability": "quality_assurance",
+    "reviewerMustMatchTenantRoleMapping": true,
+    "reviewerMustDifferFromAssignedAgentRole": true,
+    "requiredBindings": ["tenantId", "jobId", "workflowId", "attemptId", "artifactSha256", "rubricVersion"],
+    "leadReceiptQualityGateStatus": "not_run",
+    "authorityFile": "qa-verdict.json"
+  },
   "hardStops": [
     "The runner may not receive credentials through this framework repository.",
+    "The coding_agent_handoff adapter may not request an LLM API key or extract, copy, emulate, or promise headless use of a Coding Agent subscription credential.",
     "The runner may not publish, schedule, send, contact people, create a campaign, upload an audience, spend money, or modify a product.",
     "The runner may not write a final approval or external-execution receipt.",
+    "The assigned lead agent may not create, impersonate, or self-attest the independent quality_assurance verdict.",
     "A tenant must remain isolated; only approved aggregate LearningExport records may cross tenant boundaries."
   ],
   "implementationStatus": "contract_only_no_provider_adapter_included"

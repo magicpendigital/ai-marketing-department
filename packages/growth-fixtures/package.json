@@ -1,6 +1,6 @@
 {
   "name": "@growth-framework/fixtures",
-  "version": "0.1.0",
+  "version": "1.0.0-alpha.1",
   "private": true,
   "description": "Synthetic tenant onboarding and adversarial QA fixtures for the portable AI growth framework."
 }

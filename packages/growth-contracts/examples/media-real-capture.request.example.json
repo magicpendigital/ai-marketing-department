@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "0.1.0-incubating",
+  "requestId": "media-request-education-001",
+  "tenantId": "example-studio",
+  "campaignRef": "campaign-education-001",
+  "version": "1.0.0",
+  "status": "ready_for_production",
+  "mediaKinds": ["image", "video"],
+  "sourcePolicy": {
+    "allowedSourceModes": ["real_capture"],
+    "requiredOrigin": "real_capture_only",
+    "generativeAi": {
+      "policy": "planning_only_no_media_synthesis",
+      "permittedOperations": ["briefing", "shot_list_drafting", "transcription", "caption_drafting"],
+      "prohibitedOperations": [
+        "background_generation",
+        "object_generation",
+        "full_asset_generation",
+        "synthetic_voice",
+        "generative_fill",
+        "face_swap",
+        "synthetic_person"
+      ],
+      "reasonRef": "campaign requires demonstrably real product and human interaction"
+    },
+    "syntheticIdentityMedia": "forbidden"
+  },
+  "captureBrief": {
+    "briefRef": "capture-brief-education-001",
+    "productionOwnerRole": "media_production_owner",
+    "captureWindow": "approved production session",
+    "productStateRef": "product-truth:reviewed-build",
+    "locationClass": "studio",
+    "shotList": [
+      {
+        "shotId": "shot-01",
+        "purpose": "Show the real reviewed product state in use",
+        "framing": "medium close-up with readable product context",
+        "requiredRealWorldEvidence": "reviewed product state visible without synthetic replacement",
+        "talentClass": "professional_talent",
+        "audioRequired": false
+      },
+      {
+        "shotId": "shot-02",
+        "purpose": "Show the physical workflow from start to finish",
+        "framing": "wide sequence plus detail cutaways",
+        "requiredRealWorldEvidence": "continuous real-world action with no generated insert",
+        "talentClass": "professional_talent",
+        "audioRequired": true
+      }
+    ]
+  },
+  "rightsPlan": {
+    "ownershipBasis": "commissioned_work_for_hire",
+    "peopleRelease": "required",
+    "locationRelease": "required",
+    "propertyOrTrademarkClearance": "required",
+    "musicOrAudioLicense": "required",
+    "rightsOwnerRole": "rights_reviewer"
+  },
+  "uploadPlan": {
+    "storageClass": "tenant_private",
+    "allowedMimeTypes": ["image/jpeg", "image/png", "video/mp4", "text/vtt"],
+    "maximumBytesPerFile": 536870912,
+    "checksum": "sha256",
+    "metadataPolicy": "strip_sensitive_metadata",
+    "rawMediaTrainingUse": "forbidden_without_separate_opt_in"
+  },
+  "acceptanceCriteria": {
+    "authenticity": [
+      "camera original is retained and hash-bound",
+      "no synthesized pixels, voice, person, or product state",
+      "edit log contains only declared non-generative operations"
+    ],
+    "brand": ["reviewed brand direction and product presentation are followed"],
+    "technical": ["focus, exposure, audio, duration, and channel-safe framing pass review"],
+    "accessibility": ["alt text, captions, transcript, and flashing-content checks are complete where applicable"],
+    "prohibitedContent": ["unreleased person, unlicensed music, unsupported claim, private location detail, raw GPS metadata"]
+  },
+  "approvalPlan": {
+    "requiredReviewRoles": ["independent_media_qa", "rights_reviewer", "brand_owner"],
+    "artifactBinding": "exact_file_hashes_and_manifest_hash",
+    "changeInvalidatesApproval": ["source file", "edit", "caption", "audio", "rights scope", "channel", "crop", "duration"],
+    "publishGate": "separate_execution_envelope_required"
+  },
+  "externalAction": "forbidden_until_separate_execution_envelope",
+  "audit": {
+    "createdAt": "2026-09-23T02:00:00Z",
+    "createdByRole": "media_planner",
+    "lastReviewedAt": "2026-09-23T02:30:00Z",
+    "lastReviewedByRole": "brand_owner"
+  }
+}

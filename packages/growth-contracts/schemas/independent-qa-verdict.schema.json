@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-marketing-department.local/schemas/independent-qa-verdict.schema.json",
+  "title": "Growth Canvas independent QA verdict",
+  "description": "A tenant-mapped quality_assurance review that is independent from the work-order lead and bound to one claim attempt and exact artifact hashes.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "tenantId",
+    "workflowId",
+    "attemptId",
+    "reviewerRole",
+    "reviewerCapability",
+    "subjectAgentRole",
+    "reviewedAt",
+    "verdict",
+    "deterministicLintStatus",
+    "artifactBindings",
+    "hardFailureCodes",
+    "softScores",
+    "provenanceComplete",
+    "rubricVersion",
+    "notes",
+    "handoffMode",
+    "externalActionAuthority"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "jobId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "workflowId": { "const": "W2_content_factory" },
+    "attemptId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "reviewerRole": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,99}$" },
+    "reviewerCapability": { "const": "quality_assurance" },
+    "subjectAgentRole": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,99}$" },
+    "reviewedAt": { "type": "string", "format": "date-time" },
+    "verdict": { "enum": ["pass", "revise", "block"] },
+    "deterministicLintStatus": { "enum": ["passed", "repair_required", "blocked"] },
+    "artifactBindings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["reference", "hash", "bytes"],
+        "properties": {
+          "reference": { "type": "string", "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9][A-Za-z0-9._/-]*$" },
+          "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "hardFailureCodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "artifact_contract_invalid",
+          "claim_not_ready",
+          "claim_evidence_expired",
+          "deterministic_prediction",
+          "sensitive_advice_or_guarantee",
+          "persona_impersonation",
+          "unlicensed_or_unknown_rights",
+          "sensitive_data_leak",
+          "destination_or_provenance_missing",
+          "locale_or_accessibility_failure",
+          "cross_tenant_leak",
+          "approval_stale",
+          "duplicate_execution_intent"
+        ]
+      }
+    },
+    "softScores": {
+      "type": "object",
+      "required": [
+        "jtbd_audience_relevance",
+        "specific_differentiated_value",
+        "proof_claim_precision",
+        "brand_locale_editorial_quality",
+        "clarity_cta_destination_fit",
+        "platform_visual_accessibility_fit",
+        "trust_emotional_safety",
+        "experiment_measurement_quality",
+        "operational_traceability_reuse"
+      ],
+      "properties": {
+        "jtbd_audience_relevance": { "type": "number", "minimum": 1, "maximum": 5 },
+        "specific_differentiated_value": { "type": "number", "minimum": 1, "maximum": 5 },
+        "proof_claim_precision": { "type": "number", "minimum": 1, "maximum": 5 },
+        "brand_locale_editorial_quality": { "type": "number", "minimum": 1, "maximum": 5 },
+        "clarity_cta_destination_fit": { "type": "number", "minimum": 1, "maximum": 5 },
+        "platform_visual_accessibility_fit": { "type": "number", "minimum": 1, "maximum": 5 },
+        "trust_emotional_safety": { "type": "number", "minimum": 1, "maximum": 5 },
+        "experiment_measurement_quality": { "type": "number", "minimum": 1, "maximum": 5 },
+        "operational_traceability_reuse": { "type": "number", "minimum": 1, "maximum": 5 }
+      },
+      "additionalProperties": false
+    },
+    "provenanceComplete": { "type": "boolean" },
+    "rubricVersion": { "const": "growth_core_1" },
+    "notes": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "handoffMode": { "const": "manual_coding_agent" },
+    "externalActionAuthority": {
+      "type": "object",
+      "required": ["publish", "send", "schedule", "createCampaign", "uploadAudience", "spend"],
+      "properties": {
+        "publish": { "const": false },
+        "send": { "const": false },
+        "schedule": { "const": false },
+        "createCampaign": { "const": false },
+        "uploadAudience": { "const": false },
+        "spend": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

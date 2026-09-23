@@ -20,6 +20,8 @@ flowchart TB
 
 The comparison workspace receives only approved de-identified aggregate learning exports. It must not receive BrandPacks, ProductTruth evidence, customer records, source content, creative files, destination data, approval envelopes, access material, or execution receipts.
 
+Run one Local Canvas process per business on separate loopback ports. Each process receives one private tenant root and cannot register the other business. Do not create a convenience tenant switcher that gives one browser process access to both raw workspaces. Any future comparison view must consume only validated LearningExport records.
+
 ## Entry criteria for each business
 
 Before the pilot starts, each business must independently:

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-marketing-department.local/schemas/agent-job-state.schema.json",
+  "title": "Growth Canvas agent job state",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "tenantId",
+    "workflowId",
+    "manifestHash",
+    "stateVersion",
+    "status",
+    "title",
+    "campaignSummary",
+    "managerTaskDescription",
+    "handoffMode",
+    "createdAt",
+    "updatedAt",
+    "externalActionAuthority"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "jobId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,79}$" },
+    "tenantId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "workflowId": { "const": "W2_content_factory" },
+    "manifestHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "stateVersion": { "type": "integer", "minimum": 1 },
+    "status": {
+      "enum": [
+        "ready_for_agent",
+        "in_progress",
+        "awaiting_owner_decision",
+        "accepted_internal",
+        "revision_requested",
+        "blocked",
+        "cancelled",
+        "failed"
+      ]
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "campaignSummary": { "type": "string", "maxLength": 1000 },
+    "managerTaskDescription": { "type": "string", "maxLength": 2000 },
+    "handoffMode": { "const": "manual_coding_agent" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "ownerDecision": {
+      "type": "object",
+      "required": ["decision", "reason", "actorRole", "decidedAt"],
+      "properties": {
+        "decision": { "enum": ["accept", "revise", "block"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "actorRole": { "const": "owner" },
+        "decidedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "cancellation": {
+      "type": "object",
+      "required": ["reason", "actorRole", "cancelledAt"],
+      "properties": {
+        "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "actorRole": { "const": "owner" },
+        "cancelledAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "externalActionAuthority": {
+      "type": "object",
+      "required": ["publish", "send", "schedule", "createCampaign", "uploadAudience", "spend"],
+      "properties": {
+        "publish": { "const": false },
+        "send": { "const": false },
+        "schedule": { "const": false },
+        "createCampaign": { "const": false },
+        "uploadAudience": { "const": false },
+        "spend": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

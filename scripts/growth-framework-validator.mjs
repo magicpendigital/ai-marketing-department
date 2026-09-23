@@ -107,13 +107,87 @@ const readJson = (workspaceRoot, relativePath, errors) => {
 
 const matchesType = (value, type) => {
   if (type === "array") return Array.isArray(value);
+  if (type === "integer") return Number.isInteger(value);
   if (type === "object") return value !== null && typeof value === "object" && !Array.isArray(value);
   if (type === "null") return value === null;
   return typeof value === type;
 };
 
-const validateSchemaValue = (schema, value, pointer, errors) => {
-  if (!schema || typeof schema !== "object") return;
+const unsafeJsonPointerSegments = new Set(["__proto__", "prototype", "constructor"]);
+
+const resolveLocalJsonPointer = (rootSchema, reference) => {
+  if (typeof reference !== "string" || reference.length === 0 || reference.length > 2048) {
+    return { error: "must be a non-empty local JSON Pointer" };
+  }
+  if (reference !== "#" && !reference.startsWith("#/")) {
+    return { error: "must use a local JSON Pointer beginning with #/" };
+  }
+
+  let decodedPointer;
+  try {
+    decodedPointer = decodeURIComponent(reference.slice(1));
+  } catch {
+    return { error: "contains invalid URI escaping" };
+  }
+  if (decodedPointer === "") return { target: rootSchema, canonical: "#" };
+
+  const rawSegments = decodedPointer.slice(1).split("/");
+  if (rawSegments.length > 128) return { error: "exceeds the local JSON Pointer depth limit" };
+
+  const segments = [];
+  for (const rawSegment of rawSegments) {
+    if (/~(?:[^01]|$)/.test(rawSegment)) return { error: "contains invalid JSON Pointer escaping" };
+    const segment = rawSegment.replaceAll("~1", "/").replaceAll("~0", "~");
+    if (unsafeJsonPointerSegments.has(segment)) return { error: "contains an unsafe JSON Pointer segment" };
+    segments.push(segment);
+  }
+
+  let target = rootSchema;
+  for (const segment of segments) {
+    if ((target === null || typeof target !== "object") || !Object.hasOwn(target, segment)) {
+      return { error: "does not resolve inside the root schema" };
+    }
+    target = target[segment];
+  }
+  if (target === null || (typeof target !== "object" && typeof target !== "boolean")) {
+    return { error: "does not resolve to a schema" };
+  }
+
+  return { target, canonical: `#/${segments.map((segment) => segment.replaceAll("~", "~0").replaceAll("/", "~1")).join("/")}` };
+};
+
+const addReferenceError = (pointer, reference, reason, errors, context) => {
+  const printableReference = typeof reference === "string" ? reference.slice(0, 160) : String(reference);
+  const message = `${pointer}: schema reference ${JSON.stringify(printableReference)} ${reason}`;
+  if (!errors.includes(message)) errors.push(message);
+  if (context.fatalErrors !== errors && !context.fatalErrors.includes(message)) context.fatalErrors.push(message);
+};
+
+const validateSchemaValue = (schema, value, pointer, errors, context) => {
+  if (schema === false) {
+    errors.push(`${pointer}: is forbidden by the contract`);
+    return;
+  }
+  if (schema === true || !schema || typeof schema !== "object") return;
+  if (Object.hasOwn(schema, "$ref")) {
+    const resolution = resolveLocalJsonPointer(context.rootSchema, schema.$ref);
+    if (resolution.error) {
+      addReferenceError(pointer, schema.$ref, resolution.error, errors, context);
+      return;
+    }
+    if (context.activeRefs.has(resolution.canonical) || context.activeRefTargets.has(resolution.target)) {
+      addReferenceError(pointer, schema.$ref, "forms a schema reference cycle", errors, context);
+      return;
+    }
+    context.activeRefs.add(resolution.canonical);
+    context.activeRefTargets.add(resolution.target);
+    try {
+      validateSchemaValue(resolution.target, value, pointer, errors, context);
+    } finally {
+      context.activeRefs.delete(resolution.canonical);
+      context.activeRefTargets.delete(resolution.target);
+    }
+  }
   const allowedTypes = schema.type ? (Array.isArray(schema.type) ? schema.type : [schema.type]) : [];
   if (allowedTypes.length && !allowedTypes.some((type) => matchesType(value, type))) {
     errors.push(`${pointer}: expected ${allowedTypes.join(" or ")}`);
@@ -130,7 +204,7 @@ const validateSchemaValue = (schema, value, pointer, errors) => {
   }
   if (Array.isArray(value)) {
     if (typeof schema.minItems === "number" && value.length < schema.minItems) errors.push(`${pointer}: requires at least ${schema.minItems} item(s)`);
-    value.forEach((item, index) => validateSchemaValue(schema.items, item, `${pointer}[${index}]`, errors));
+    value.forEach((item, index) => validateSchemaValue(schema.items, item, `${pointer}[${index}]`, errors, context));
   }
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     if (typeof schema.minProperties === "number" && Object.keys(value).length < schema.minProperties) {
@@ -145,28 +219,58 @@ const validateSchemaValue = (schema, value, pointer, errors) => {
       }
     }
     for (const [key, childSchema] of Object.entries(schema.properties || {})) {
-      if (Object.hasOwn(value, key)) validateSchemaValue(childSchema, value[key], `${pointer}.${key}`, errors);
+      if (Object.hasOwn(value, key)) validateSchemaValue(childSchema, value[key], `${pointer}.${key}`, errors, context);
     }
     if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
       for (const [key, childValue] of Object.entries(value)) {
-        if (!Object.hasOwn(schema.properties || {}, key)) validateSchemaValue(schema.additionalProperties, childValue, `${pointer}.${key}`, errors);
+        if (!Object.hasOwn(schema.properties || {}, key)) validateSchemaValue(schema.additionalProperties, childValue, `${pointer}.${key}`, errors, context);
       }
     }
+  }
+  for (const childSchema of schema.allOf || []) {
+    validateSchemaValue(childSchema, value, pointer, errors, context);
+  }
+  if (schema.if && typeof schema.if === "object") {
+    const conditionErrors = [];
+    validateSchemaValue(schema.if, value, pointer, conditionErrors, context);
+    const branch = conditionErrors.length === 0 ? schema.then : schema.else;
+    if (branch !== undefined) validateSchemaValue(branch, value, pointer, errors, context);
   }
 };
 
 export const validateContractInstance = (workspaceRoot, contractRelativePath, value, label = "contract instance") => {
   const errors = [];
   const schema = readJson(workspaceRoot, path.join("packages/growth-contracts", contractRelativePath), errors);
-  if (schema) validateSchemaValue(schema, value, label, errors);
+  if (schema) {
+    validateSchemaValue(schema, value, label, errors, {
+      rootSchema: schema,
+      activeRefs: new Set(),
+      activeRefTargets: new Set(),
+      fatalErrors: errors
+    });
+  }
   return errors;
 };
 
 const validateContracts = (workspaceRoot, errors) => {
   const index = readJson(workspaceRoot, "packages/growth-contracts/contract-index.json", errors);
   if (!index) return;
-  if (!Array.isArray(index.contracts) || index.contracts.length !== 7) {
-    errors.push("contract index must list seven portable contracts");
+  const requiredContracts = [
+    "schemas/product-truth.schema.json",
+    "schemas/content-brief.schema.json",
+    "schemas/asset-package.schema.json",
+    "schemas/qa-verdict.schema.json",
+    "schemas/approval-record.schema.json",
+    "schemas/execution-receipt.schema.json",
+    "schemas/learning-export.schema.json",
+    "schemas/agent-work-order.schema.json",
+    "schemas/agent-job-state.schema.json",
+    "schemas/agent-run-receipt.schema.json",
+    "schemas/independent-qa-verdict.schema.json",
+    "schemas/canvas-workspace-registry.schema.json"
+  ];
+  if (!Array.isArray(index.contracts) || index.contracts.length !== requiredContracts.length || requiredContracts.some((contract) => !index.contracts.includes(contract))) {
+    errors.push("contract index must list the twelve portable framework and Canvas schemas");
     return;
   }
   for (const relativePath of index.contracts) {
@@ -175,6 +279,10 @@ const validateContracts = (workspaceRoot, errors) => {
     if (!hasText(schema.title) || schema.type !== "object" || !Array.isArray(schema.required)) {
       errors.push(`contract schema ${relativePath} is incomplete`);
     }
+  }
+  const requiredRuntimeContracts = ["../growth-core/config/agent-runner-contract.json", "../growth-core/config/local-agent-bridge.json"];
+  if (!Array.isArray(index.runtimeContracts) || requiredRuntimeContracts.some((contract) => !index.runtimeContracts.includes(contract))) {
+    errors.push("contract index must list the runner and local Coding Agent bridge contracts");
   }
 };
 
@@ -189,9 +297,10 @@ const validateCore = (workspaceRoot, errors) => {
   const subworkflows = readJson(workspaceRoot, "packages/growth-core/config/workflow-subworkflows-b0-b1.json", errors);
   const onboardingPolicy = readJson(workspaceRoot, "packages/growth-core/config/tenant-onboarding-policy.json", errors);
   const runnerContract = readJson(workspaceRoot, "packages/growth-core/config/agent-runner-contract.json", errors);
+  const localAgentBridge = readJson(workspaceRoot, "packages/growth-core/config/local-agent-bridge.json", errors);
   const exportManifest = readJson(workspaceRoot, "packages/growth-core/export-manifest.json", errors);
   const exportRootPackage = readJson(workspaceRoot, "packages/growth-core/export-root-package.json", errors);
-  if (!catalog || !workflows || !qualityGates || !metrics || !stateMachine || !skillsCatalog || !agentTopology || !subworkflows || !onboardingPolicy || !runnerContract || !exportManifest || !exportRootPackage) return;
+  if (!catalog || !workflows || !qualityGates || !metrics || !stateMachine || !skillsCatalog || !agentTopology || !subworkflows || !onboardingPolicy || !runnerContract || !localAgentBridge || !exportManifest || !exportRootPackage) return;
 
   if (catalog.mode !== "draft_only" || !Array.isArray(catalog.agents) || catalog.agents.length !== 8) {
     errors.push("portable agent catalog must have exactly eight draft-only roles");
@@ -279,6 +388,9 @@ const validateCore = (workspaceRoot, errors) => {
   if (runnerContract.defaultAdapterMode !== "disabled" || runnerContract.implementationStatus !== "contract_only_no_provider_adapter_included" || !Array.isArray(runnerContract.permittedAdapterModes) || !runnerContract.permittedAdapterModes.includes("mock") || !Array.isArray(runnerContract.requiredJobFields) || runnerContract.requiredJobFields.length < 6 || !runnerContract.forbiddenJobInputs?.includes("provider_api_key") || !runnerContract.forbiddenJobInputs?.includes("customer_identifier")) {
     errors.push("portable runner contract must remain disabled by default and protect credentials and personal data");
   }
+  if (!runnerContract.permittedAdapterModes?.includes("coding_agent_handoff") || localAgentBridge.defaultAdapterMode !== "coding_agent_handoff" || localAgentBridge.executionBoundary?.frameworkRequiresProviderApiKey !== false || localAgentBridge.executionBoundary?.frameworkAcceptsProviderApiKey !== false || localAgentBridge.executionBoundary?.frameworkStoresProviderCredential !== false || localAgentBridge.executionBoundary?.userInitiatedAgentSessionRequired !== true || localAgentBridge.executionBoundary?.headlessSubscriptionAuthentication !== "not_implemented_or_promised") {
+    errors.push("local Coding Agent bridge must remain user-initiated, no-key, credential-free, and honest about headless authentication");
+  }
   if (exportManifest.exportMode !== "allow_list_only" || exportManifest.nonIncludedPathsAreExcluded !== true) {
     errors.push("portable export manifest must enforce allow-list-only extraction");
   }
@@ -286,6 +398,8 @@ const validateCore = (workspaceRoot, errors) => {
     "packages/growth-contracts",
     "packages/growth-core",
     "packages/growth-fixtures",
+    "packages/growth-canvas",
+    "package-lock.json",
     "scripts/growth-framework-validator.mjs",
     "scripts/validate-growth-framework.mjs",
     "scripts/growth-framework.test.mjs",
@@ -297,6 +411,14 @@ const validateCore = (workspaceRoot, errors) => {
     "scripts/growth-tenant-onboarding.test.mjs",
     "scripts/prepare-growth-job.mjs",
     "scripts/growth-job-preparation.test.mjs",
+    "scripts/claim-growth-job.mjs",
+    "scripts/review-growth-job.mjs",
+    "scripts/complete-growth-job.mjs",
+    "scripts/growth-job-test-fixtures.mjs",
+    "scripts/growth-job-lifecycle.test.mjs",
+    "scripts/growth-canvas-contracts.test.mjs",
+    "scripts/growth-canvas-backend.test.mjs",
+    "scripts/media-supervisor-contracts.test.mjs",
     "scripts/validate-growth-tenant-artifacts.mjs",
     "scripts/growth-tenant-artifacts.test.mjs",
     "scripts/growth-two-tenant-demo.mjs",
@@ -309,14 +431,28 @@ const validateCore = (workspaceRoot, errors) => {
   for (const requiredPath of requiredExportPaths) {
     if (!exportManifest.include?.includes(requiredPath)) errors.push(`portable export manifest must include ${requiredPath}`);
   }
-  const sourceTenantPackage = ["packages/growth-", "ni", "laza"].join("");
-  if (exportManifest.include?.some((relativePath) => /^(?:apps|supabase|assets|design)(?:\/|$)/i.test(relativePath) || relativePath === sourceTenantPackage || relativePath.startsWith(`${sourceTenantPackage}/`) || /(?:^|\/)(?:private|customer-data)(?:\/|$)/i.test(relativePath))) {
-    errors.push("portable export manifest includes a private or application path");
+  const portablePackageRoots = new Set([
+    "packages/growth-contracts",
+    "packages/growth-core",
+    "packages/growth-fixtures",
+    "packages/growth-canvas"
+  ]);
+  const includesNonPortablePath = exportManifest.include?.some((relativePath) => {
+    const normalizedPath = String(relativePath || "").replaceAll("\\", "/");
+    const pathSegments = normalizedPath.split("/");
+    const packageRoot = pathSegments.slice(0, 2).join("/");
+    const nonFrameworkPackage = normalizedPath.startsWith("packages/") && !portablePackageRoots.has(packageRoot);
+    const applicationRoot = /^(?:apps|supabase|assets|design)(?:\/|$)/i.test(normalizedPath);
+    const privateDataPath = /(?:^|\/)(?:tenant-workspaces|private|customer-data)(?:\/|$)/i.test(normalizedPath);
+    return nonFrameworkPackage || applicationRoot || privateDataPath;
+  });
+  if (includesNonPortablePath) {
+    errors.push("portable export manifest includes a non-framework package or private/application path");
   }
   if (!exportManifest.neverExport?.includes("customer_data") || !exportManifest.neverExport?.includes("provider_or_oauth_secret")) {
     errors.push("portable export manifest must block customer data and secrets");
   }
-  if (exportRootPackage.engines?.node !== ">=22 <23" || exportRootPackage.scripts?.validate !== "node scripts/validate-growth-framework.mjs" || exportRootPackage.scripts?.test !== "node --test scripts/growth-framework.test.mjs scripts/growth-tenant-onboarding.test.mjs scripts/growth-tenant-artifacts.test.mjs scripts/growth-job-preparation.test.mjs scripts/growth-two-tenant-demo.test.mjs scripts/growth-tenant-learning-export.test.mjs" || exportRootPackage.scripts?.["tenant:init"] !== "node scripts/init-growth-tenant.mjs" || exportRootPackage.scripts?.["tenant:validate"] !== "node scripts/validate-growth-tenant.mjs" || exportRootPackage.scripts?.["tenant:demo:validate"] !== "node scripts/validate-growth-tenant-demo.mjs" || exportRootPackage.scripts?.["tenant:artifact:validate"] !== "node scripts/validate-growth-tenant-artifacts.mjs" || exportRootPackage.scripts?.["tenant:job:prepare"] !== "node scripts/prepare-growth-job.mjs" || exportRootPackage.scripts?.["tenant:two:validate"] !== "node scripts/growth-two-tenant-demo.mjs" || exportRootPackage.scripts?.["tenant:learning:validate"] !== "node scripts/validate-growth-tenant-learning-export.mjs" || exportRootPackage.scripts?.["tenant:learning:compare"] !== "node scripts/compare-growth-tenant-learning-exports.mjs" || exportRootPackage.scripts?.["tenant:learning:demo"] !== "node scripts/growth-tenant-learning-demo.mjs") {
+  if (exportRootPackage.engines?.node !== ">=22 <23" || exportRootPackage.scripts?.validate !== "node scripts/validate-growth-framework.mjs" || exportRootPackage.scripts?.test !== "node --test scripts/growth-framework.test.mjs scripts/growth-tenant-onboarding.test.mjs scripts/growth-tenant-artifacts.test.mjs scripts/growth-job-preparation.test.mjs scripts/growth-two-tenant-demo.test.mjs scripts/growth-tenant-learning-export.test.mjs scripts/growth-canvas-contracts.test.mjs scripts/growth-canvas-backend.test.mjs scripts/growth-job-lifecycle.test.mjs scripts/media-supervisor-contracts.test.mjs" || exportRootPackage.scripts?.["canvas:build"] !== "npm run build --workspace growth-canvas" || exportRootPackage.scripts?.["canvas:start"] !== "npm run start --workspace growth-canvas --" || exportRootPackage.scripts?.["canvas:test"] !== "node --test scripts/growth-canvas-contracts.test.mjs scripts/growth-canvas-backend.test.mjs scripts/growth-job-lifecycle.test.mjs && npm run test:sites --workspace growth-canvas" || exportRootPackage.scripts?.["tenant:init"] !== "node scripts/init-growth-tenant.mjs" || exportRootPackage.scripts?.["tenant:validate"] !== "node scripts/validate-growth-tenant.mjs" || exportRootPackage.scripts?.["tenant:demo:validate"] !== "node scripts/validate-growth-tenant-demo.mjs" || exportRootPackage.scripts?.["tenant:artifact:validate"] !== "node scripts/validate-growth-tenant-artifacts.mjs" || exportRootPackage.scripts?.["tenant:job:prepare"] !== "node scripts/prepare-growth-job.mjs" || exportRootPackage.scripts?.["tenant:job:claim"] !== "node scripts/claim-growth-job.mjs" || exportRootPackage.scripts?.["tenant:job:review"] !== "node scripts/review-growth-job.mjs" || exportRootPackage.scripts?.["tenant:job:complete"] !== "node scripts/complete-growth-job.mjs" || exportRootPackage.scripts?.["tenant:two:validate"] !== "node scripts/growth-two-tenant-demo.mjs" || exportRootPackage.scripts?.["tenant:learning:validate"] !== "node scripts/validate-growth-tenant-learning-export.mjs" || exportRootPackage.scripts?.["tenant:learning:compare"] !== "node scripts/compare-growth-tenant-learning-exports.mjs" || exportRootPackage.scripts?.["tenant:learning:demo"] !== "node scripts/growth-tenant-learning-demo.mjs") {
     errors.push("portable export root package must expose framework validation and tests");
   }
 };

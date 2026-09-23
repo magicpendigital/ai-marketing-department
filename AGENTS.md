@@ -36,11 +36,12 @@ The lead agent owns the handoff record. A sub-agent must return its finding, sou
 1. Run `npm run validate` and `npm test` in the framework repository.
 2. Initialize a separate tenant folder with `npm run tenant:init -- --tenant <slug> --output <private-tenant-directory>`.
 3. Complete the tenant's own facts and ownership records. Run `npm run tenant:validate -- --tenant-root <private-tenant-directory>` until it returns `ready_for_internal_drafts`.
-4. Prepare a bounded internal work manifest with `npm run tenant:job:prepare -- --tenant-root <private-tenant-directory> --workflow W2_content_factory --job-id <safe-id> --output <private-tenant-directory>/jobs/<safe-id>.json`.
-5. Use the matching skill to create an internal artifact. Run `npm run tenant:artifact:validate -- --tenant-root <private-tenant-directory>` before requesting human editorial review.
-6. Keep artifact states at or before `qa_pass_pending_human`, preserve the QA verdict, and route human decisions through the tenant owner.
+4. Prepare a bounded internal work manifest through Local Canvas or with `npm run tenant:job:prepare -- --tenant-root <private-tenant-directory> --workflow W2_content_factory --job-id <safe-id> --output <private-tenant-directory>/jobs/<safe-id>.json --adapter-mode coding_agent_handoff`.
+5. For a Canvas job, the mapped content lead claims it with `npm run tenant:job:claim` and creates the internal artifact. A different tenant-mapped `quality_assurance` role must bind its verdict to the active attempt and exact artifact hashes with `npm run tenant:job:review`. The lead then submits its non-QA receipt with `npm run tenant:job:complete`.
+6. Run `npm run tenant:artifact:validate -- --tenant-root <private-tenant-directory>` before requesting human editorial review.
+7. Keep artifact states at or before `qa_pass_pending_human`, preserve the QA verdict, and route human decisions through the tenant owner.
 
-The job-preparation command writes a portable, non-secret manifest. It does not call an AI provider. An owner-configured runtime may use the manifest only after it has separately established its own credential and privacy controls; it must still return an internal draft for lint, independent QA, and human decision.
+The job-preparation command writes a portable, non-secret manifest. It does not call an AI provider. `coding_agent_handoff` is initiated by the user in their existing Coding Agent and requires no API key in this framework. Do not claim unattended subscription access unless a separately reviewed runtime capability and login check proves it. The lead receipt keeps `qualityGateStatus` at `not_run`; only the separate tenant-mapped QA verdict has quality authority. Every mode must still return an internal draft for lint, independent QA, and human decision.
 
 ## Escalate or stop
 

@@ -1,8 +1,14 @@
-# AI Marketing Operations Framework
+# AI Marketing Department Framework
 
 This repository template packages the portable controls, contracts, fixtures, and operating guidance for an AI-assisted marketing team. It gives every new business the same safe starting capability without copying another business's claims, creative work, customer records, destinations, or operating history.
 
-It is an operating framework, not an autonomous publishing or advertising system.
+It is an operating framework with a local manager Canvas, not an autonomous publishing or advertising system.
+
+## Local Canvas: no separate LLM API key
+
+The `v1.0.0-alpha.1` runtime lets a business owner use the Coding Agent they already subscribe to as the execution layer. The framework contributes the workflows, roles, skills, business memory, quality gates, job lifecycle, audit trail, and no-code review surface. It does not collect an LLM API key or proxy a subscription credential.
+
+Manual work-order handoff is the reliable default. Subscription-backed CLI automation remains optional and must pass runtime capability and login checks before it can be enabled. See [Local Canvas](docs/LOCAL_CANVAS.md).
 
 ## What the first release can do
 
@@ -29,7 +35,14 @@ The first release does **not** publish, schedule, send, contact people, create a
    npm run tenant:two:validate
    ```
 
-5. Run W0 before W1, W1 before W2, and W2 before any human review of an external-material candidate. Use [Artifact Examples](docs/ARTIFACT_EXAMPLES.md) only after ProductTruth and the locale policy are reviewed.
+5. Build and start one local Canvas process for the private tenant:
+
+   ```sh
+   npm run canvas:build
+   npm run canvas:start -- --workspace ../tenant --port 4310
+   ```
+
+6. Run W0 before W1, W1 before W2, and W2 before any human review of an external-material candidate. Use [Artifact Examples](docs/ARTIFACT_EXAMPLES.md) only after ProductTruth and the locale policy are reviewed.
 
 When W0 is complete, validate every W1/W2 artifact before its human review and prepare a bounded internal job manifest when an owner-configured AI runtime is used:
 
@@ -39,6 +52,16 @@ npm run tenant:job:prepare -- --tenant-root <private-tenant-directory> --workflo
 ```
 
 Job preparation writes a non-secret internal manifest only. It does not call an AI provider, publish material, or access a channel credential.
+
+For Local Canvas jobs, the content lead and independent QA are separate tenant-mapped roles. The lead claims and drafts, the QA role records an attempt-bound verdict over exact artifact hashes, and completion rehashes those artifacts before owner review:
+
+```sh
+npm run tenant:job:claim -- --workspace <private-tenant-directory> --job-id <job-id> --attempt-id <attempt-id>
+npm run tenant:job:review -- --workspace <private-tenant-directory> --job-id <job-id> --verdict <private-tenant-directory>/<qa-verdict-candidate.json>
+npm run tenant:job:complete -- --workspace <private-tenant-directory> --job-id <job-id> --receipt <private-tenant-directory>/<run-receipt-candidate.json>
+```
+
+The lead receipt cannot self-approve quality. Revision retries use a new attempt and retain an immutable archive of the prior attempt records and reviewed artifact bytes.
 
 When an owner has produced a non-synthetic, privacy-reviewed aggregate learning export, validate it from `framework/` before any comparison:
 
@@ -80,6 +103,7 @@ No agent may advance a gate on its own. [Governance](docs/GOVERNANCE.md) defines
 | `packages/growth-contracts` | Versioned schemas for ProductTruth, briefs, asset packages, QA, approvals, receipts, and aggregate learning exports. |
 | `packages/growth-core` | Draft-only agent catalog, workflows, gates, metrics, approval state machine, export policy, and this starter template. |
 | `packages/growth-fixtures` | Synthetic conformance fixtures and an intentionally incomplete tenant onboarding template, including the private-tenant scaffold. |
+| `packages/growth-canvas` | Local manager UI and loopback control server for no-key Coding Agent work-order handoff. |
 | `scripts` | Portable validation, adversarial tests, and clean-room export tooling. |
 | `AGENTS.md` and `skills` | Reproducible routing guidance and the eight bounded agent skills for a local AI runtime. |
 | `docs` | Operating instructions for a new tenant, governance, the two-business pilot, and version adoption. |
@@ -94,8 +118,13 @@ No agent may advance a gate on its own. [Governance](docs/GOVERNANCE.md) defines
 5. [Governance](docs/GOVERNANCE.md)
 6. [Two-Business Pilot](docs/TWO_BUSINESS_PILOT.md)
 7. [Versioning and Upgrades](docs/VERSIONING_AND_UPGRADES.md)
-8. [Contributing](CONTRIBUTING.md)
-9. [License Decision](LICENSE_DECISION.md)
+8. [Local Canvas](docs/LOCAL_CANVAS.md)
+9. [Product Control Plane Roadmap](docs/PRODUCT_CONTROL_PLANE_ROADMAP.md)
+10. [Media Provenance Workflow](docs/MEDIA_PROVENANCE_WORKFLOW.md)
+11. [Pro Supervisor Operating Model](docs/PRO_SUPERVISOR_OPERATING_MODEL.md)
+12. [Media and Supervisor Extension Status](docs/MEDIA_AND_SUPERVISOR_EXTENSIONS.md)
+13. [Contributing](CONTRIBUTING.md)
+14. [License Decision](LICENSE_DECISION.md)
 
 ## When this framework is ready for a new business
 

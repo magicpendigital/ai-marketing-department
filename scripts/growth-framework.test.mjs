@@ -7,11 +7,9 @@ import { createGrowthFrameworkExport, readSourceBoundaryTerms } from "./export-g
 import { lintCandidate, validateGrowthFramework } from "./growth-framework-validator.mjs";
 
 const sourceRoot = process.cwd();
-const sourceTenantTerm = ["Ni", "laza"].join("");
-const sourceTenantAlias = ["tenant-", "ni", "laza"].join("");
-const sourceBoundaryPath = ["packages/growth-", "ni", "laza/readiness/sprint-01-readiness.json"].join("");
+const syntheticForbiddenBrandTerm = `synthetic-export-brand-${process.pid}`;
+const syntheticBrandedAlias = `tenant-${syntheticForbiddenBrandTerm}`;
 const hasNestedRepositoryStarter = fs.existsSync(path.join(sourceRoot, "packages", "growth-core", "repository-template"));
-const sourceOnlyTest = fs.existsSync(path.join(sourceRoot, sourceBoundaryPath)) ? test : test.skip;
 
 const readJson = (root, relativePath) => JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 const writeJson = (root, relativePath, value) => fs.writeFileSync(path.join(root, relativePath), `${JSON.stringify(value, null, 2)}\n`, "utf8");
@@ -93,7 +91,7 @@ test("LearningExport rejects a branded alias and free-text metric or cost values
   try {
     const learningPath = "packages/growth-fixtures/learning-exports/synthetic-example.json";
     const learningExport = readJson(root, learningPath);
-    learningExport.tenantAlias = sourceTenantAlias;
+    learningExport.tenantAlias = syntheticBrandedAlias;
     learningExport.funnelMetrics = { valuableActivationRateBucket: "Alice has anxiety" };
     learningExport.costBuckets = { media: `customer email ${directIdentifier}` };
     writeJson(root, learningPath, learningExport);
@@ -109,7 +107,7 @@ test("LearningExport rejects a branded alias and free-text metric or cost values
 test("allow-list export creates a clean portable workspace that validates independently", () => {
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "growth-framework-export-test-"));
   try {
-    const result = createGrowthFrameworkExport(sourceRoot, output, { forbiddenTerms: [sourceTenantTerm] });
+    const result = createGrowthFrameworkExport(sourceRoot, output, { forbiddenTerms: [syntheticForbiddenBrandTerm] });
     assert.equal(result.summary.frameworkIntegrity, "pass");
     assert.ok(fs.existsSync(path.join(output, "package.json")));
     assert.ok(fs.existsSync(path.join(output, "README.md")));
@@ -126,11 +124,26 @@ test("clean export rejects tenant branding injected into an allow-listed file", 
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "growth-framework-export-fail-"));
   try {
     const target = path.join(root, "packages/growth-core/README.md");
-    fs.appendFileSync(target, `\nTenant-specific brand marker: ${sourceTenantTerm}\n`, "utf8");
-    assert.throws(() => createGrowthFrameworkExport(root, output, { forbiddenTerms: [sourceTenantTerm] }), /tenant-specific branding/i);
+    fs.appendFileSync(target, `\nTenant-specific brand marker: ${syntheticForbiddenBrandTerm}\n`, "utf8");
+    assert.throws(() => createGrowthFrameworkExport(root, output, { forbiddenTerms: [syntheticForbiddenBrandTerm] }), /tenant-specific branding/i);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(output, { recursive: true, force: true });
+  }
+});
+
+test("portable validation rejects a tenant package structurally without knowing its brand", () => {
+  const root = copyPortableSource();
+  try {
+    const manifestPath = "packages/growth-core/export-manifest.json";
+    const manifest = readJson(root, manifestPath);
+    manifest.include.push("packages/growth-example-customer");
+    writeJson(root, manifestPath, manifest);
+
+    const result = validateGrowthFramework(root);
+    assert.ok(result.errors.some((error) => error.includes("non-framework package")));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -143,10 +156,17 @@ test("clean export fails closed without a source-tenant term", () => {
   }
 });
 
-sourceOnlyTest("source boundary terms are read only from a source file inside the workspace", () => {
-  const terms = readSourceBoundaryTerms(sourceRoot, sourceBoundaryPath);
-  assert.ok(terms.length > 0);
-  assert.throws(() => readSourceBoundaryTerms(sourceRoot, "../outside-boundary.json"), /inside the source workspace/i);
+test("source boundary terms are read only from a synthetic source file inside the workspace", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "growth-framework-boundary-"));
+  try {
+    writeJson(root, "source-boundary.json", {
+      identityBoundary: { ownBrandTokens: [syntheticForbiddenBrandTerm] }
+    });
+    assert.deepEqual(readSourceBoundaryTerms(root, "source-boundary.json"), [syntheticForbiddenBrandTerm]);
+    assert.throws(() => readSourceBoundaryTerms(root, "../outside-boundary.json"), /inside the source workspace/i);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("clean export rejects an unscanned file type in an allow-listed path", () => {
@@ -154,7 +174,7 @@ test("clean export rejects an unscanned file type in an allow-listed path", () =
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "growth-framework-export-unknown-file-"));
   try {
     fs.writeFileSync(path.join(root, "packages/growth-core/unreviewed.bin"), "not permitted", "utf8");
-    assert.throws(() => createGrowthFrameworkExport(root, output, { forbiddenTerms: [sourceTenantTerm] }), /unscanned file type/i);
+    assert.throws(() => createGrowthFrameworkExport(root, output, { forbiddenTerms: [syntheticForbiddenBrandTerm] }), /unscanned file type/i);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(output, { recursive: true, force: true });
@@ -167,7 +187,7 @@ test("clean export rejects personal data injected into an allow-listed script", 
   const directIdentifier = ["inject", "example.test"].join("@");
   try {
     fs.appendFileSync(path.join(root, "scripts", "growth-framework-validator.mjs"), `\nconst syntheticLeak = "${directIdentifier}";\n`, "utf8");
-    assert.throws(() => createGrowthFrameworkExport(root, output, { forbiddenTerms: [sourceTenantTerm] }), /personal-data pattern/i);
+    assert.throws(() => createGrowthFrameworkExport(root, output, { forbiddenTerms: [syntheticForbiddenBrandTerm] }), /personal-data pattern/i);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(output, { recursive: true, force: true });
