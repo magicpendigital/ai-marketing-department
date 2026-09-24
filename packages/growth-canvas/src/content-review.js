@@ -1,3 +1,5 @@
+import { channelIdFrom, mediaKindForArtifact } from "./content-preview.js";
+
 const reviewStateByStatus = Object.freeze({
   awaiting_owner_decision: "pending",
   accepted_internal: "approved",
@@ -22,6 +24,11 @@ const sourceKeyPattern = /(?:source|evidence|provenance|rights|claimRef|license)
 
 const objectValue = (value) => value && typeof value === "object" && !Array.isArray(value);
 
+function channelIdFromReference(reference) {
+  const match = String(reference ?? "").toLowerCase().match(/(?:^|\/)(facebook|instagram|linkedin|blog)(?:\/|$)/);
+  return match ? match[1] : null;
+}
+
 export function contentReviewState(job) {
   const status = job?.state?.status ?? job?.status ?? "";
   return reviewStateByStatus[status] ?? null;
@@ -39,7 +46,18 @@ export function preferredContentFilter(jobs, current = "pending") {
 function localizedName(value) {
   if (typeof value === "string") return value;
   if (!objectValue(value)) return null;
-  return value.vi ?? value["vi-VN"] ?? value["en-US"] ?? value.en ?? Object.values(value).find((entry) => typeof entry === "string") ?? null;
+  for (const key of ["vi", "vi-VN", "en-US", "en"]) {
+    const preferred = value[key];
+    if (typeof preferred === "string") return preferred;
+    const nested = localizedName(preferred);
+    if (nested) return nested;
+  }
+  for (const entry of Object.values(value)) {
+    if (typeof entry === "string") return entry;
+    const nested = localizedName(entry);
+    if (nested) return nested;
+  }
+  return null;
 }
 
 function groupLabel(node, path, index) {
@@ -47,6 +65,18 @@ function groupLabel(node, path, index) {
   const explicit = localizedName(node?.name) ?? localizedName(node?.title) ?? node?.label ?? node?.id ?? node?.conceptId ?? node?.concept_id;
   if (explicit) return String(explicit);
   return `${path.at(-1).replaceAll(/[_-]+/g, " ")} ${index + 1}`;
+}
+
+function contentItemId(node) {
+  const value = node?.contentItemId ?? node?.content_item_id ?? node?.id;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function contentItemIdFromReference(reference) {
+  const parts = String(reference ?? "").replaceAll("\\", "/").split("/").filter(Boolean);
+  const mediaIndex = parts.findIndex((part) => part.toLowerCase() === "media");
+  if (mediaIndex < 0 || parts.length < mediaIndex + 4) return null;
+  return parts[mediaIndex + 2] || null;
 }
 
 function normalizeCopyVariants(copy) {
@@ -67,19 +97,20 @@ function normalizeCopyVariants(copy) {
 function collectCopyGroups(root) {
   const groups = [];
   const seen = new Set();
-  const walk = (value, path = []) => {
+  const walk = (value, path = [], inheritedChannelId = null) => {
     if (!value || typeof value !== "object" || seen.has(value)) return;
     seen.add(value);
+    const channelId = channelIdFrom(value.channelId ?? value.channel) ?? inheritedChannelId;
     if (objectValue(value.copy)) {
       const variants = normalizeCopyVariants(value.copy);
-      if (variants.length > 0) groups.push({ id: `${path.join(".") || "root"}.copy`, label: groupLabel(value, path, groups.length), variants });
+      if (variants.length > 0) groups.push({ id: `${path.join(".") || "root"}.copy`, contentItemId: contentItemId(value), label: groupLabel(value, path, groups.length), channelId, variants });
     } else {
       const variants = normalizeCopyVariants(value);
-      if (variants.length > 0) groups.push({ id: path.join(".") || "root", label: groupLabel(value, path, groups.length), variants });
+      if (variants.length > 0) groups.push({ id: path.join(".") || "root", contentItemId: contentItemId(value), label: groupLabel(value, path, groups.length), channelId, variants });
     }
-    if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, [...path, String(index + 1)]));
+    if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, [...path, String(index + 1)], channelId));
     else Object.entries(value).forEach(([key, entry]) => {
-      if (key !== "copy" && entry && typeof entry === "object") walk(entry, [...path, key]);
+      if (key !== "copy" && entry && typeof entry === "object") walk(entry, [...path, key], channelIdFrom(key) ?? channelId);
     });
   };
   walk(root);
@@ -116,20 +147,55 @@ export function parseContentArtifacts(contentRecord) {
     if (typeof content === "string" && /json/i.test(artifact?.preview?.mediaType ?? artifact?.mediaType ?? artifact?.reference ?? "")) {
       try { parsed = JSON.parse(content); } catch { /* The verified raw preview remains available below. */ }
     }
+    const preview = artifact?.preview ?? {};
     return {
       id: artifact.reference ?? `artifact-${index + 1}`,
       reference: artifact.reference ?? `Tệp ${index + 1}`,
       hash: artifact.hash ?? artifact.currentHash ?? null,
       bytes: artifact.bytes ?? artifact.preview?.bytes ?? null,
-      mediaType: artifact.preview?.mediaType ?? artifact.mediaType ?? "application/octet-stream",
-      previewStatus: artifact.preview?.status ?? (content != null ? "available" : "metadata_only"),
+      mediaType: preview.mediaType ?? artifact.mediaType ?? "application/octet-stream",
+      previewStatus: preview.status ?? (content != null ? "available" : "metadata_only"),
       rawContent: typeof content === "string" ? content : null,
       parsed,
       copyGroups: parsed ? collectCopyGroups(parsed) : [],
       mediaMetadata: parsed ? collectMetadata(parsed, mediaKeyPattern) : [],
       sourceMetadata: parsed ? collectMetadata(parsed, sourceKeyPattern) : [],
+      mediaKind: mediaKindForArtifact({ ...artifact, preview }),
+      channelId: channelIdFrom(artifact.channelId ?? parsed?.channelId ?? parsed?.channel ?? parsed?.destination?.channelId) ?? channelIdFromReference(artifact.reference),
     };
   });
+}
+
+export function listContentUnits(contentRecord) {
+  const artifacts = parseContentArtifacts(contentRecord);
+  const targetChannels = contentRecord?.targetChannels ?? contentRecord?.review?.targetChannels ?? [];
+  const units = artifacts.flatMap((artifact) => artifact.copyGroups.map((group) => {
+    const channelId = group.channelId ?? artifact.channelId ?? (targetChannels.length === 1 ? targetChannels[0] : null);
+    return {
+      id: `${artifact.id}::${group.id}`,
+      artifactId: artifact.id,
+      reference: artifact.reference,
+      groupId: group.id,
+      contentItemId: group.contentItemId,
+      title: group.label,
+      channelId,
+      variants: group.variants,
+      mediaArtifacts: [],
+    };
+  }));
+  const unitsPerChannel = new Map();
+  for (const unit of units) if (unit.channelId) unitsPerChannel.set(unit.channelId, (unitsPerChannel.get(unit.channelId) ?? 0) + 1);
+  return units.map((unit) => ({
+    ...unit,
+    mediaArtifacts: artifacts.filter((candidate) => {
+      if (!candidate.mediaKind || candidate.previewStatus !== "media_available") return false;
+      const mediaItemId = candidate.parsed?.contentItemId ?? candidate.parsed?.content_item_id ?? contentItemIdFromReference(candidate.reference);
+      if (mediaItemId) return Boolean(unit.contentItemId && mediaItemId === unit.contentItemId && candidate.channelId === unit.channelId);
+      if ((unitsPerChannel.get(unit.channelId) ?? 0) !== 1) return false;
+      return candidate.channelId === unit.channelId
+        || (!candidate.channelId && targetChannels.length === 1 && candidate.reference.toLowerCase().includes("/media/"));
+    }),
+  }));
 }
 
 export function qualityDimensionsForRecord(contentRecord) {

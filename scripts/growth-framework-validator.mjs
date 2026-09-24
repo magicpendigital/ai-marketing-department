@@ -266,11 +266,12 @@ const validateContracts = (workspaceRoot, errors) => {
     "schemas/agent-work-order.schema.json",
     "schemas/agent-job-state.schema.json",
     "schemas/agent-run-receipt.schema.json",
+    "schemas/agent-work-log.schema.json",
     "schemas/independent-qa-verdict.schema.json",
     "schemas/canvas-workspace-registry.schema.json"
   ];
   if (!Array.isArray(index.contracts) || index.contracts.length !== requiredContracts.length || requiredContracts.some((contract) => !index.contracts.includes(contract))) {
-    errors.push("contract index must list the twelve portable framework and Canvas schemas");
+    errors.push("contract index must list the thirteen portable framework and Canvas schemas");
     return;
   }
   for (const relativePath of index.contracts) {

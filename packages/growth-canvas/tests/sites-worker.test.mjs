@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { access, readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import worker from "../worker/index.js";
+import { codingAgentSchedulePrompt, mediaSkillsAuditPrompt } from "../src/automation-guidance.js";
 import {
   checklistForManager,
+  mutationErrorMessage,
   normalizeReviewBundle,
+  reviewErrorMessage,
   summarizeArtifactPreview,
   teamForManager,
 } from "../src/review-gate.js";
@@ -40,6 +43,13 @@ test("opens the owner gate only when every review verification is explicit", () 
   assert.equal(ambiguous.readyForOwnerDecision, false, "aliases and truthy values must not open the exact backend gate");
 });
 
+test("shows actionable messages for duplicate jobs and preserves review-gate errors", () => {
+  assert.equal(mutationErrorMessage({ status: 409, code: "duplicate_job" }), "Mã task này đã tồn tại. Hãy chọn mã khác để tạo task mới.");
+  assert.equal(mutationErrorMessage({ status: 409, code: "tenant_not_ready" }), "Doanh nghiệp chưa vượt qua kiểm tra sẵn sàng để tạo task.");
+  assert.match(mutationErrorMessage({ status: 409, code: "independent_qa_required" }), /kiểm định độc lập chưa đạt/i);
+  assert.equal(reviewErrorMessage({ status: 404 }), "Backend chưa cung cấp gói duyệt cho task này.");
+});
+
 test("builds a concise manager preview from verified structured content", () => {
   const summary = summarizeArtifactPreview({
     readyForOwnerDecision: true,
@@ -53,6 +63,19 @@ test("builds a concise manager preview from verified structured content", () => 
   assert.equal(summary.qa.mean, 4);
   assert.equal(summary.qa.min, 3);
   assert.match(summary.remainingGates.join(" "), /xuất bản.*vẫn đang khóa/i);
+});
+
+test("manager preview skips work logs and uses the first structured content package", () => {
+  const summary = summarizeArtifactPreview({
+    readyForOwnerDecision: true,
+    qa: { softScores: {} },
+    artifacts: [
+      { reference: "artifacts/agent-work-log.json", preview: { content: JSON.stringify({ artifactKind: "agent_work_log", steps: [] }) } },
+      { reference: "artifacts/01-content.json", preview: { content: JSON.stringify({ artifactKind: "concept_copy_package", copy: { vi: { headline: "Bản nội dung đầu tiên", body: "Copy có cấu trúc", cta: "Lưu câu hỏi" } } }) } },
+    ],
+  });
+  assert.equal(summary.headline, "Bản nội dung đầu tiên");
+  assert.equal(summary.body, "Copy có cấu trúc");
 });
 
 test("resolves the recommended concept from the portable content package shape", () => {
@@ -72,16 +95,28 @@ test("resolves the recommended concept from the portable content package shape",
   assert.equal(summary.headline, "Một tiêu đề");
 });
 
-test("owner review marks evidence ready without inventing approval", () => {
+test("owner review readiness does not promote every assigned role to complete", () => {
   const checklist = checklistForManager(["Review draft", "Confirm claims"], { awaitingOwnerDecision: true, reviewVerified: true });
   assert.deepEqual(checklist.map(({ status }) => status), ["ready", "ready"]);
   assert.equal(checklist.some(({ status }) => status === "passed"), false);
 
   const team = teamForManager([
-    { id: "content_studio", state: "review_pending" },
-    { id: "tenant-independent-qa", state: "review_pending" },
+    { id: "content_studio", state: "complete", evidenceRole: "lead" },
+    { id: "brief_expander", state: "evidence_missing", evidenceRole: "subagent" },
+    { id: "tenant-independent-qa", state: "complete", evidenceRole: "quality_assurance" },
   ], { awaitingOwnerDecision: true, reviewVerified: true });
-  assert.deepEqual(team.map(({ state }) => state), ["complete", "complete"]);
+  assert.deepEqual(team.map(({ state }) => state), ["complete", "evidence_missing", "complete"]);
+});
+
+test("automation guidance stays subscription-aware and requires truthful media provenance", () => {
+  assert.match(codingAgentSchedulePrompt, /verify|xác nhận/i);
+  assert.match(codingAgentSchedulePrompt, /múi giờ/i);
+  assert.match(codingAgentSchedulePrompt, /không dùng API key/i);
+  assert.match(codingAgentSchedulePrompt, /Không đăng bài/);
+  assert.match(mediaSkillsAuditPrompt, /kiểm tra skill\/plugin/i);
+  assert.match(mediaSkillsAuditPrompt, /chủ workspace xác nhận/i);
+  assert.match(mediaSkillsAuditPrompt, /giữ nguyên nội dung thực/i);
+  assert.match(mediaSkillsAuditPrompt, /Không đăng/);
 });
 
 test("organizes content records into manager review filters", () => {
@@ -113,7 +148,7 @@ test("extracts every localized copy option plus media and source metadata", () =
             visualBrief: { source: "owned-photo-library", mediaType: "photography", accessibility: { altTextRequired: true } },
             productionRecord: {
               concepts: [
-                { id: "c1", name: { vi: "Phương án một" }, copy: { vi: { headline: "Một", caption: "Caption một" } } },
+                { id: "c1", name: { vi: { vi: "Phương án một", "en-US": "Option one" } }, copy: { vi: { headline: "Một", caption: "Caption một" } } },
                 { id: "c2", name: { vi: "Phương án hai" }, copy: { vi: { headline: "Hai", caption: "Caption hai" } } },
               ],
               rightsAndProvenance: { rightsStatus: "approved", sourceRegisterRefs: ["owned-photo-library"] },

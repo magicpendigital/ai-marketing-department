@@ -1,5 +1,9 @@
 # Start Here
 
+> **Chủ doanh nghiệp hoặc quản lý marketing:** bắt đầu từ [Hướng dẫn nhanh không cần viết code](MANAGER_QUICK_START.vi.md). Hướng dẫn cài đặt kỹ thuật cho người quản trị vẫn nằm trong tài liệu này.
+
+For the internal approval boundary, post-publication lifecycle, and reporting plan, see [Content lifecycle and reporting](CONTENT_LIFECYCLE_AND_REPORTING.vi.md).
+
 Use this guide to give a new business the same initial AI-marketing operating capability as every other tenant of the framework. The target is a safe, internally useful preparation system: readiness, research briefs, content drafts, independent QA, and aggregate learning notes. It is not a launch authorization.
 
 ## Decide the operating boundary first
@@ -75,7 +79,7 @@ flowchart LR
 ```
 
 - W1 creates a research scope, audience/job hypothesis, experiment brief, and measurement plan from approved inputs.
-- W2 creates internal concepts, copy, visual briefs, deterministic lint results, and independent QA verdicts.
+- W2 creates internal concepts and copy, requires completed channel-ready image/video files when the task's media policy says so, assembles the full preview before deterministic lint and independent QA, and stops at owner review. A prompt or visual brief is not a media deliverable.
 - W6 produces only aggregate, de-identified learning notes and product-ticket drafts for product-owner triage.
 
 Do not contact people, upload an audience, schedule a post, send a message, or buy media in this cycle.

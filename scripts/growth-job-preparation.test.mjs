@@ -59,14 +59,20 @@ test("coding-agent handoff creates a provider-neutral work order without request
       workflowId: "W2_content_factory",
       outputPath,
       jobId: "coding-agent-content-001",
-      adapterMode: "coding_agent_handoff"
+      adapterMode: "coding_agent_handoff",
+      targetChannels: ["facebook"],
+      mediaDeliveryRequirement: "required",
+      w2ProductionOrder: ["media", "copy"]
     });
 
     assert.equal(job.workOrderVersion, "1.0.0");
     assert.equal(job.lifecycleState, "prepared");
     assert.equal(job.requestedCapability, "content_authoring");
     assert.equal(job.assignedAgentRole, "content_studio");
-    assert.deepEqual(job.subagentTemplateIds, ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"]);
+    assert.deepEqual(job.subagentTemplateIds, ["brief_expander", "locale_editor", "media_asset_producer", "visual_accessibility_brief_checker", "post_assembler"]);
+    assert.deepEqual(job.targetChannels, ["facebook"]);
+    assert.equal(job.mediaDeliveryRequirement, "required");
+    assert.deepEqual(job.w2ProductionOrder, ["media", "copy"]);
     assert.equal(job.managerReview.decisionRequired, "editor_or_owner_decision");
     assert.ok(job.managerReview.checklist.length >= 4);
     assert.equal(job.promptVersion, "repository_instructions_and_skill_contract_1");
@@ -82,6 +88,39 @@ test("coding-agent handoff creates a provider-neutral work order without request
     const persisted = fs.readFileSync(outputPath, "utf8");
     assert.deepEqual(JSON.parse(persisted), job);
     assert.doesNotMatch(persisted, /provider_api_key|oauth_token|subscription_token/i);
+  });
+});
+
+test("W2 work orders freeze explicitly selected channels and an allowlisted sub-agent assignment", () => {
+  withReadyTenant((tenantRoot) => {
+    const jobId = "channel-assignment-001";
+    const job = prepareGrowthJob({
+      tenantRoot,
+      workflowId: "W2_content_factory",
+      outputPath: path.join(tenantRoot, "jobs", `${jobId}.json`),
+      jobId,
+      adapterMode: "coding_agent_handoff",
+      targetChannels: ["instagram", "blog"],
+      subagentTemplateIds: ["locale_editor"]
+    });
+    assert.deepEqual(job.targetChannels, ["instagram", "blog"]);
+    assert.deepEqual(job.subagentTemplateIds, ["locale_editor"]);
+    assert.match(job.taskDescription, /separate, channel-specific content package/i);
+    assert.match(job.taskDescription, /tag every copy and media item with its channelId/i);
+    assert.throws(() => prepareGrowthJob({
+      tenantRoot,
+      workflowId: "W2_content_factory",
+      outputPath: path.join(tenantRoot, "jobs", "invalid-channel-001.json"),
+      jobId: "invalid-channel-001",
+      targetChannels: ["x-social"]
+    }), /supported channel ids/i);
+    assert.throws(() => prepareGrowthJob({
+      tenantRoot,
+      workflowId: "W2_content_factory",
+      outputPath: path.join(tenantRoot, "jobs", "invalid-agent-001.json"),
+      jobId: "invalid-agent-001",
+      subagentTemplateIds: ["unreviewed_agent"]
+    }), /approved content-team roster/i);
   });
 });
 

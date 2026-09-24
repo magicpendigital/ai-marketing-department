@@ -1,5 +1,26 @@
 const unwrap = (payload) => payload?.data ?? payload ?? {};
 
+export function reviewErrorMessage(error) {
+  const code = String(error?.code ?? "");
+  if (code === "decision_not_ready") return "Task chưa đến bước chủ doanh nghiệp duyệt.";
+  if (code.includes("receipt")) return "Chưa có biên nhận lần chạy hợp lệ để đối chiếu kết quả.";
+  if (code.includes("claim")) return "Thông tin nhận task của Coding Agent chưa hợp lệ hoặc chưa đầy đủ.";
+  if (code.includes("reviewer")) return "Chưa xác minh được tính độc lập của người kiểm định.";
+  if (code.includes("qa")) return "Kết quả kiểm định độc lập chưa đạt điều kiện để chủ doanh nghiệp duyệt.";
+  if (code.includes("integrity") || code.includes("artifact")) return "Tệp kết quả hoặc hash hiện tại chưa khớp với bản đã được kiểm định.";
+  if (error?.status === 404) return "Backend chưa cung cấp gói duyệt cho task này.";
+  return "Không thể tải gói duyệt an toàn. Quyết định đã được khóa.";
+}
+
+export function mutationErrorMessage(error) {
+  if (error?.status === 409 && error?.code === "duplicate_job") return "Mã task này đã tồn tại. Hãy chọn mã khác để tạo task mới.";
+  if (error?.status === 409 && error?.code === "tenant_not_ready") return "Doanh nghiệp chưa vượt qua kiểm tra sẵn sàng để tạo task.";
+  if (error?.status === 409) return `${reviewErrorMessage(error)} Hãy làm mới Canvas sau khi Coding Agent hoàn tất bước còn thiếu.`;
+  if (error?.status === 400) return "Dữ liệu gửi lên chưa hợp lệ. Hãy kiểm tra lại nội dung và thử lại.";
+  if (error?.status === 403) return "Thao tác này không nằm trong quyền được cấp cho Canvas cục bộ.";
+  return "Không thể hoàn tất thao tác. Canvas đã làm mới trạng thái để tránh dùng dữ liệu cũ.";
+}
+
 export function normalizeReviewBundle(payload) {
   const bundle = unwrap(payload);
   const verification = bundle.verification ?? {};
@@ -71,7 +92,10 @@ export function summarizeArtifactPreview(bundle) {
     if (typeof content !== "string") continue;
     try { parsed.push(JSON.parse(content)); } catch { /* Non-JSON previews stay in technical details. */ }
   }
-  const root = parsed[0] ?? null;
+  // A reviewed artifact set can start with agent-work-log.json or a lint record.
+  // Find the first actual content package so operational evidence does not hide
+  // the copy preview from the manager.
+  const root = parsed.find((item) => findLocalizedCopy(item)) ?? parsed[0] ?? null;
   const copy = findLocalizedCopy(root);
   const candidate = root?.recommendedCandidate ?? root?.recommended_candidate
     ?? root?.productionRecord?.recommendedCandidate ?? root?.production_record?.recommended_candidate
@@ -108,7 +132,9 @@ export function checklistForManager(items, { awaitingOwnerDecision = false, revi
   });
 }
 
-export function teamForManager(team, { awaitingOwnerDecision = false, reviewVerified = false } = {}) {
-  if (!awaitingOwnerDecision || !reviewVerified) return team ?? [];
-  return (team ?? []).map((member) => ({ ...member, state: "complete", status: "complete", time: "complete" }));
+export function teamForManager(team) {
+  // Role status is evidence-driven by the backend. A verified review bundle only
+  // proves that the task may be reviewed; it does not prove every assigned role
+  // completed its own work.
+  return team ?? [];
 }

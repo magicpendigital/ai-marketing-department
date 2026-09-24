@@ -64,6 +64,15 @@ const api = async (runtime, pathname, { method = "GET", body, origin = runtime.b
   return { status: response.status, body: await response.json() };
 };
 
+const apiMedia = async (runtime, pathname, { capability = runtime.accessCapability } = {}) => {
+  const response = await fetch(`${runtime.baseUrl}${pathname}`, {
+    headers: { ...(capability ? { "X-Canvas-Capability": capability } : {}), Accept: "image/*, video/*" }
+  });
+  const contentType = response.headers.get("content-type");
+  const body = Buffer.from(await response.arrayBuffer());
+  return { status: response.status, contentType, body, ...(contentType?.includes("application/json") ? { error: JSON.parse(body.toString("utf8")) } : {}) };
+};
+
 const jobInput = (jobId = "launch-concept-001") => ({
   jobId,
   workflowId: "W2_content_factory",
@@ -84,6 +93,29 @@ const passingSoftScores = () => ({
   operational_traceability_reuse: 4
 });
 
+const buildChannelWorkLog = ({ jobId, tenantId, channels, mediaOutputByChannel = {} }) => {
+  const attemptId = `${jobId}-attempt`;
+  const outputReference = `operations/jobs/${jobId}/artifacts/concept-package.json`;
+  const stages = [
+    ["W2.2", "Develop channel-specific concept", "brief_expander"],
+    ["W2.3", "Write channel copy and locale", "locale_editor"],
+    ["W2.4", "Produce final media asset", "media_asset_producer"],
+    ["W2.4", "Inspect media rights and accessibility", "visual_accessibility_brief_checker"],
+    ["W2.5", "Assemble final channel post preview", "post_assembler"]
+  ];
+  const steps = channels.flatMap((channelId, channelIndex) => stages.map(([stepId, label, workerId], stageIndex) => {
+    const startedAt = new Date(Date.UTC(2026, 8, 23, 9, channelIndex * 12 + stageIndex * 3)).toISOString();
+    const finishedAt = new Date(Date.parse(startedAt) + 120_000).toISOString();
+    const stageOutputReference = stepId === "W2.4" ? mediaOutputByChannel[channelId] ?? outputReference : outputReference;
+    return {
+      stepId, channelId, label: `${label} · ${channelId}`, workerId, workerType: "sub_agent", status: "complete",
+      summary: `Completed the ${stepId} handoff for ${channelId}; linked output is included in the reviewed package.`,
+      inputReferences: ["briefs/approved.json"], outputReferences: [stageOutputReference], startedAt, finishedAt
+    };
+  }));
+  return `${JSON.stringify({ schemaVersion: "1.0.0", artifactKind: "agent_work_log", jobId, tenantId, workflowId: "W2_content_factory", attemptId, createdAt: "2026-09-23T09:20:00.000Z", steps }, null, 2)}\n`;
+};
+
 const runReviewedLifecycle = ({ tenantRoot, store, jobId, artifacts }) => {
   const claimedAt = new Date(Date.now() - 1_000);
   const attemptId = `${jobId}-attempt`;
@@ -99,6 +131,7 @@ const runReviewedLifecycle = ({ tenantRoot, store, jobId, artifacts }) => {
   ];
   const references = fixtureArtifacts.map(({ name, content }) => {
     const filePath = path.join(artifactDirectory, name);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, content);
     return `operations/jobs/${jobId}/artifacts/${name}`;
   });
@@ -309,6 +342,30 @@ test("Canvas creates one immutable W2 work order and rejects a duplicate", async
   });
 });
 
+test("Canvas persists assigned channels and an editable approved W2 support roster", async () => {
+  const tenantRoot = createTenant({ tenantId: "channel-assignment-tenant" });
+  await withServer(tenantRoot, async (runtime) => {
+    const input = { ...jobInput("channel-assignment-job"), targetChannels: ["facebook", "linkedin"], subagentTemplateIds: ["locale_editor", "brief_expander"], mediaDeliveryRequirement: "required", w2ProductionOrder: ["media", "copy"] };
+    const created = await api(runtime, "/api/jobs", { method: "POST", body: input });
+    assert.equal(created.status, 201);
+    assert.deepEqual(created.body.manifest.targetChannels, ["facebook", "linkedin"]);
+    assert.deepEqual(created.body.manifest.subagentTemplateIds, ["locale_editor", "brief_expander"]);
+    assert.equal(created.body.manifest.mediaDeliveryRequirement, "required");
+    assert.deepEqual(created.body.manifest.w2ProductionOrder, ["media", "copy"]);
+    assert.match(created.body.handoff.prompt, /targetChannels are facebook, linkedin/i);
+    assert.match(created.body.handoff.prompt, /visual brief, prompt, storyboard or technical note is not a media deliverable/i);
+    assert.match(created.body.handoff.prompt, /priority 1\. media → 2\. copy/i);
+    assert.match(created.body.handoff.prompt, /agent-work-log\.schema\.json/i);
+    assert.match(created.body.handoff.prompt, /never include hidden chain-of-thought/i);
+
+    const fetched = await api(runtime, "/api/jobs/channel-assignment-job");
+    assert.equal(fetched.status, 200);
+    assert.deepEqual(fetched.body.manifest.targetChannels, input.targetChannels);
+    const persisted = JSON.parse(fs.readFileSync(path.join(tenantRoot, "operations", "jobs", input.jobId, "manifest.json"), "utf8"));
+    assert.deepEqual(persisted.targetChannels, input.targetChannels);
+  });
+});
+
 test("Bootstrap reads the nested experiment and derives manager-facing fallbacks", async () => {
   const tenantRoot = createTenant({ tenantId: "manager-view-tenant" });
   const experimentPath = path.join(tenantRoot, "campaigns", "experiment-brief.json");
@@ -363,10 +420,11 @@ test("Bootstrap reads the nested experiment and derives manager-facing fallbacks
     assert.ok(withJob.body.checklist.every((item) => item.state === "pending"));
     assert.ok(withJob.body.team.some((member) => member.id === "content_studio"));
     assert.ok(withJob.body.team.some((member) => member.id === "brief_expander"));
-    assert.equal(withJob.body.team.length, 4);
+    assert.equal(withJob.body.team.length, 7);
     assert.equal(withJob.body.team[0].role, "Content studio");
     assert.ok(withJob.body.team.some((member) => member.role === "Quality reviewer"));
-    assert.ok(withJob.body.team.every((member) => ["ready", "working", "review_pending", "complete", "blocked"].includes(member.state)));
+    assert.ok(withJob.body.team.every((member) => ["ready", "working", "review_pending", "complete", "blocked", "evidence_missing"].includes(member.state)));
+    assert.deepEqual(withJob.body.team.filter((member) => member.evidenceRole === "subagent").map((member) => member.state), ["ready", "ready", "ready", "ready", "ready"]);
     assert.ok(withJob.body.quality.passed.includes("work_order"));
     assert.equal(withJob.body.currentTask.jobId, "manager-view-job");
     assert.equal(withJob.body.workflow.find((stage) => stage.id === "creation").state, "current");
@@ -508,7 +566,7 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
   const store = createCanvasWorkspaceStore({ workspace: tenantRoot });
   await withServer(tenantRoot, async (runtime) => {
     const jobId = "verified-review-job";
-    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: jobInput(jobId) })).status, 201);
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: { ...jobInput(jobId), targetChannels: ["facebook", "instagram"] } })).status, 201);
     const lifecycle = runReviewedLifecycle({
       tenantRoot,
       store,
@@ -516,7 +574,8 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
       artifacts: [
         { name: "concept.json", content: `${JSON.stringify({ title: "Internal concept", action: "manager review" }, null, 2)}\n` },
         { name: "long-notes.txt", content: "x".repeat(33 * 1024) },
-        { name: "visual.png", content: Buffer.from([0, 1, 2, 3, 255, 0, 128]) }
+        { name: "visual.png", content: Buffer.from([0, 1, 2, 3, 255, 0, 128]) },
+        { name: "agent-work-log.json", content: buildChannelWorkLog({ jobId, tenantId: store.tenantId, channels: ["facebook", "instagram"] }) }
       ]
     });
     assert.equal(lifecycle.completed.job.state.status, "awaiting_owner_decision");
@@ -541,6 +600,7 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
     assert.equal(Object.hasOwn(previews.get("long-notes.txt"), "content"), false);
     assert.equal(previews.get("visual.png").status, "refused_binary");
     assert.equal(Object.hasOwn(previews.get("visual.png"), "content"), false);
+    assert.equal(previews.get("agent-work-log.json").status, "available");
 
     const accepted = await api(runtime, `/api/jobs/${jobId}/decision`, {
       method: "POST",
@@ -555,6 +615,13 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
     assert.equal(decisionEvent.payload.qaReviewerRole, "tenant-independent-qa");
     assert.deepEqual(decisionEvent.payload.artifactHashes, lifecycle.artifactBindings);
 
+    const afterApproval = await api(runtime, "/api/bootstrap");
+    assert.equal(afterApproval.status, 200);
+    assert.equal(afterApproval.body.team.length, 7, "the dashboard includes every assigned role, not an arbitrary four-person subset");
+    assert.equal(afterApproval.body.team.find((member) => member.evidenceRole === "lead").state, "complete");
+    assert.deepEqual(afterApproval.body.team.filter((member) => member.evidenceRole === "subagent").map((member) => member.state), ["complete", "complete", "complete", "complete", "complete"]);
+    assert.equal(afterApproval.body.team.find((member) => member.evidenceRole === "quality_assurance").state, "complete");
+
     const strictBundleAfterDecision = await api(runtime, `/api/jobs/${jobId}/review-bundle`);
     assert.equal(strictBundleAfterDecision.status, 409, "the decision endpoint keeps its awaiting-owner-only review gate");
     assert.equal(strictBundleAfterDecision.body.error.code, "decision_not_ready");
@@ -562,6 +629,7 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
     const contentRecord = await api(runtime, `/api/jobs/${jobId}/content-record`);
     assert.equal(contentRecord.status, 200);
     assert.equal(contentRecord.body.recordStatus, "accepted_internal");
+    assert.deepEqual(contentRecord.body.targetChannels, ["facebook", "instagram"]);
     assert.equal(contentRecord.body.review.readyForOwnerDecision, false);
     assert.equal(contentRecord.body.review.verification.artifactIntegrity, "verified");
     const contentPreviews = new Map(contentRecord.body.review.artifacts.map((artifact) => [path.basename(artifact.reference), artifact.preview]));
@@ -573,6 +641,51 @@ test("Verified lifecycle exposes a safe review bundle and binds the local decisi
     assert.equal(contentRecord.body.versions[0].attemptId, lifecycle.attemptId);
     assert.equal(contentRecord.body.versions[0].ownerDecision, "accept");
     assert.equal(contentRecord.body.decisionHistory[0].reason, "The verified internal candidate meets the review checklist.");
+  });
+});
+
+test("required media blocks owner review without a real final file and accepts a hash-bound image", async () => {
+  const tenantRoot = createTenant({ tenantId: "required-media-gate-tenant" });
+  const store = createCanvasWorkspaceStore({ workspace: tenantRoot });
+  const mediaReference = "operations/jobs/required-media-gate-job/artifacts/media/facebook/hero.png";
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00]);
+  await withServer(tenantRoot, async (runtime) => {
+    const missingMediaJob = "required-media-gate-job";
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: { ...jobInput(missingMediaJob), targetChannels: ["facebook"], mediaDeliveryRequirement: "required" } })).status, 201);
+    assert.throws(() => runReviewedLifecycle({
+      tenantRoot,
+      store,
+      jobId: missingMediaJob,
+      artifacts: [{ name: "agent-work-log.json", content: buildChannelWorkLog({ jobId: missingMediaJob, tenantId: store.tenantId, channels: ["facebook"] }) }]
+    }), /real final PNG\/JPEG\/WebP\/MP4\/WebM/i);
+
+    const deliveredMediaJob = "required-media-delivered-job";
+    const deliveredReference = mediaReference.replace(missingMediaJob, deliveredMediaJob);
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: { ...jobInput(deliveredMediaJob), targetChannels: ["facebook"], mediaDeliveryRequirement: "required" } })).status, 201);
+    const deliveredMedia = runReviewedLifecycle({
+      tenantRoot,
+      store,
+      jobId: deliveredMediaJob,
+      artifacts: [
+        { name: "media/facebook/hero.png", content: pngSignature },
+        { name: "agent-work-log.json", content: buildChannelWorkLog({ jobId: deliveredMediaJob, tenantId: store.tenantId, channels: ["facebook"], mediaOutputByChannel: { facebook: deliveredReference } }) }
+      ]
+    });
+    assert.equal(deliveredMedia.completed.job.state.status, "awaiting_owner_decision");
+    const verifiedBundle = await api(runtime, `/api/jobs/${deliveredMediaJob}/review-bundle`);
+    assert.equal(verifiedBundle.status, 200);
+    assert.equal(verifiedBundle.body.readyForOwnerDecision, true);
+    assert.ok(verifiedBundle.body.artifacts.some((artifact) => artifact.reference === deliveredReference && artifact.preview.status === "media_available"));
+  });
+});
+
+test("Channel-assigned content cannot pass deterministic review without channel-stage work logs", async () => {
+  const tenantRoot = createTenant({ tenantId: "work-log-required-tenant" });
+  const store = createCanvasWorkspaceStore({ workspace: tenantRoot });
+  await withServer(tenantRoot, async (runtime) => {
+    const jobId = "work-log-required-job";
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: { ...jobInput(jobId), targetChannels: ["facebook"] } })).status, 201);
+    assert.throws(() => runReviewedLifecycle({ tenantRoot, store, jobId, artifacts: [] }), /agent_work_log/i);
   });
 });
 
@@ -602,6 +715,49 @@ test("Content record keeps a revision-requested draft readable with its decision
     const draftArtifact = contentRecord.body.review.artifacts.find(({ reference }) => path.basename(reference) === "draft.json");
     assert.match(draftArtifact.preview.content, /Nội dung đầy đủ/);
     assert.equal(contentRecord.body.decisionHistory[0].decision, "revise");
+  });
+});
+
+test("Content media preview serves only hash-verified, declared image and video artifacts", async () => {
+  const tenantRoot = createTenant({ tenantId: "verified-media-preview-tenant" });
+  const store = createCanvasWorkspaceStore({ workspace: tenantRoot });
+  await withServer(tenantRoot, async (runtime) => {
+    const jobId = "verified-media-preview-job";
+    assert.equal((await api(runtime, "/api/jobs", { method: "POST", body: jobInput(jobId) })).status, 201);
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/eewAAAAASUVORK5CYII=", "base64");
+    const lifecycle = runReviewedLifecycle({
+      tenantRoot,
+      store,
+      jobId,
+      artifacts: [
+        { name: "approved-visual.png", content: png },
+        { name: "spoofed-visual.png", content: Buffer.from("not really a PNG", "utf8") }
+      ]
+    });
+
+    const visualRef = lifecycle.references.find((reference) => reference.endsWith("approved-visual.png"));
+    const spoofRef = lifecycle.references.find((reference) => reference.endsWith("spoofed-visual.png"));
+    const preview = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(visualRef)}`);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.contentType, "image/png");
+    assert.deepEqual(preview.body, png);
+    assert.equal(preview.body.length, png.length);
+
+    const unlisted = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent("content-drafts/not-in-the-reviewed-job.jpg")}`);
+    assert.equal(unlisted.status, 404);
+    assert.equal(unlisted.error.error.code, "media_artifact_not_found");
+
+    const spoofed = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(spoofRef)}`);
+    assert.equal(spoofed.status, 415);
+    assert.equal(spoofed.error.error.code, "media_signature_rejected");
+
+    const unauthenticated = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(visualRef)}`, { capability: "" });
+    assert.equal(unauthenticated.status, 401);
+
+    fs.appendFileSync(path.join(tenantRoot, visualRef), Buffer.from([0x00]));
+    const tampered = await apiMedia(runtime, `/api/jobs/${jobId}/media-preview?reference=${encodeURIComponent(visualRef)}`);
+    assert.equal(tampered.status, 409);
+    assert.equal(tampered.error.error.code, "decision_lint_invalid");
   });
 });
 

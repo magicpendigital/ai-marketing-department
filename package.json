@@ -8,7 +8,7 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "validate": "node scripts/validate-growth-framework.mjs",
-    "test": "node --test scripts/growth-framework.test.mjs scripts/growth-tenant-onboarding.test.mjs scripts/growth-tenant-artifacts.test.mjs scripts/growth-job-preparation.test.mjs scripts/growth-two-tenant-demo.test.mjs scripts/growth-tenant-learning-export.test.mjs scripts/growth-canvas-contracts.test.mjs scripts/growth-canvas-backend.test.mjs scripts/growth-job-lifecycle.test.mjs scripts/media-supervisor-contracts.test.mjs",
+    "test": "node --test scripts/growth-framework.test.mjs scripts/growth-tenant-onboarding.test.mjs scripts/growth-tenant-artifacts.test.mjs scripts/growth-job-preparation.test.mjs scripts/growth-two-tenant-demo.test.mjs scripts/growth-tenant-learning-export.test.mjs scripts/growth-canvas-contracts.test.mjs scripts/growth-canvas-backend.test.mjs scripts/growth-job-lifecycle.test.mjs scripts/growth-content-preview.test.mjs scripts/media-supervisor-contracts.test.mjs",
     "canvas:build": "npm run build --workspace growth-canvas",
     "canvas:dev": "npm run dev --workspace growth-canvas",
     "canvas:start": "npm run start --workspace growth-canvas --",

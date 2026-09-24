@@ -1,5 +1,7 @@
 # Local Canvas alpha
 
+> Người quản lý không muốn thao tác terminal hoặc JSON: xem [Hướng dẫn nhanh cho manager](MANAGER_QUICK_START.vi.md).
+
 Local Canvas is the manager-facing control surface for the portable AI Marketing Department. It runs on the owner's machine, reads exactly one private tenant workspace per process, and hands bounded jobs to a Coding Agent the owner already uses.
 
 It does not request an LLM API key. It also does not promise free or unlimited model usage: the selected Coding Agent remains subject to its own subscription, login state, usage limits, and product terms.
@@ -33,7 +35,7 @@ npm run canvas:build
 npm run canvas:start -- --workspace <private-tenant-directory> --port 4310
 ```
 
-The server binds to `127.0.0.1` by default and prints a private local URL containing an ephemeral per-process capability in the URL fragment. Open that exact URL. The UI keeps the capability only for the current browser session and removes it from the visible address after capture. A single process accepts exactly one tenant workspace. Restarting the server creates a new capability; stop it with `Ctrl+C`.
+The server binds to `127.0.0.1` by default and prints a private local URL containing an ephemeral per-process capability in the URL fragment. Open that exact URL. The UI keeps the capability only for the current browser session and removes it from the visible address after capture. To open another browser on the same machine, use **Sao chép link riêng** in the connected Canvas header. Treat this as a bearer access link; do not share it. A single process accepts exactly one tenant workspace. Restarting the server creates a new capability; stop it with `Ctrl+C`.
 
 During UI-only development, `npm run canvas:dev` starts Vite with a tenant-neutral fallback dataset. The production local pilot should use `canvas:start` so UI and API share one loopback origin.
 
@@ -45,11 +47,17 @@ During UI-only development, `npm run canvas:dev` starts Vite with a tenant-neutr
 4. Copy the task instruction or open the private workspace in the Coding Agent.
 5. Tell the Coding Agent to read `AGENTS.md`, the matching skill, and the exact job manifest before it claims the job.
 6. Have the tenant-mapped `quality_assurance` role run the independent review, then watch the job move from `in_progress` to owner review, repair, or blocked.
-7. Open **Nội dung** in the left navigation. Use **Cần duyệt**, **Đã duyệt**, or **Cần sửa** to find the record, then select it from the list.
-8. Read **Nội dung đầy đủ** for every produced copy variant. Use **Media & nguồn** for supplied visual/media instructions, rights, sources, and provenance; **Chất lượng** for independent QA; and **Phiên bản & quyết định** for attempts and owner reasons. Raw JSON and hashes stay in the collapsed evidence view.
-9. For a record in **Cần duyệt**, record a reason when approving it internally or requesting a revision. An internal approval does not grant any external-action authority.
+7. Open **Nội dung** in the left navigation. Use **Cần duyệt**, **Đã duyệt**, or **Cần sửa** to find the record, then select it from the list. A zero count shows an explicit empty message; it is not a blank workspace.
+8. Read **Nội dung đầy đủ** one content item at a time. The manager selects one or more target channels and an explicit media requirement when creating the task; the immutable work order stores them. The preview lists only those channels and one locale at a time. For a multi-channel task, every variant/media item must carry its matching `channelId`; an untagged generic variant is not reused. The simulation combines copy and any hash-verified final image/video file; a visual brief or prompt is never shown as finished media.
+9. Use **Media cuối & nguồn** for the actual delivered files, rights, sources, and provenance; **Chất lượng** for independent QA; and **Phiên bản & quyết định** for attempts and owner reasons. Raw JSON and hashes stay in the collapsed evidence view.
+10. For a record in **Cần duyệt**, record a reason when approving it internally or requesting a revision. An internal approval does not grant any external-action authority.
+11. Open **Quy trình** to inspect all framework agents, sub-agents, and the W0/W1/W2/W6 flow. W2 shows the concept, copy/media branches, final preview assembly, deterministic lint, independent QA, and owner decision in order. Copy and media branches can be reordered as a priority for the next immutable work order; QA and owner gates stay locked. Click an Agent/Sub-Agent for its role details. Open **Quy trình & kết quả** on a content record to inspect the current attempt's `agent-work-log.json`. New channel-assigned jobs require completed concept, copy, final-media-policy, and assembly results for every assigned channel. When `mediaDeliveryRequirement` is `required`, W2.4 must bind a real, supported image/video file; prompts and briefs cannot pass. The log and exact referenced files are included in independent QA. It records outcome summaries, roles, channel, timings, input/output references, and issue codes, never private chain-of-thought. Older jobs without a media policy remain legacy and are not silently changed.
 
-The interface never treats `queued` or `in_progress` as completed work. A quality score is a gate summary, not proof of campaign performance.
+The **Content** library currently lists work orders/campaign groups. Its preview can browse the content items parsed from a batch, but the alpha owner decision still applies to the entire task artifact set. If separate approvals are needed, create one work order per approval unit until the future item-level decision ledger is implemented. See [Campaigns, content items, and review](CONTENT_ITEMS_AND_REVIEW.vi.md).
+
+The interface never treats `queued` or `in_progress` as completed work. Role status in the dashboard is derived from a validated current-attempt lead receipt, work log, or QA verdict; a verified owner-review bundle alone does not promote every role to complete. A quality score is a gate summary, not proof of campaign performance. Internal approval is separate from publishing. The current alpha has no connected publisher, post receipt, scheduler, ad account, or post-publication analytics; see [Content lifecycle and reporting](CONTENT_LIFECYCLE_AND_REPORTING.vi.md) and [Coding Agent scheduling and media skills](CODING_AGENT_AUTOMATION_HANDOFF.vi.md).
+
+Creating a work order only stores a task. To start it, open the Dashboard, copy the full handoff prompt, paste it into a user-authorized Coding Agent session with access to the selected framework and tenant, and send it. The Canvas does not start a background agent. It also does not schedule recurring work; a schedule would need a supported runtime queue and explicit credentials/authorization boundary, which are not available in this alpha.
 
 ## Coding Agent lifecycle
 
@@ -73,7 +81,7 @@ npm run tenant:job:complete -- --workspace <private-tenant-directory> --job-id <
 
 Claim, review, completion, cancellation, and owner decisions use one cross-process per-job lock. Completion and owner review recompute deterministic lint, rehash the artifacts, and require exact equality with the separate QA verdict; the lead receipt cannot self-attest QA. A revision creates a distinct attempt and archives the prior claim, deterministic-lint receipt, QA, run receipt, integrity record, state snapshot, and artifact bytes without overwrite. The Coding Agent cannot write the owner's decision.
 
-The compact dashboard review card previews at most 32 KiB per text artifact and 128 KiB total. The dedicated **Content** workspace uses a separate bounded reader of 512 KiB per text artifact and 2 MiB total per record so normal concept/copy packages render in full. Larger text deliverables must be split into reviewable artifacts in this alpha; the UI keeps integrity metadata visible when a bounded preview is refused.
+The compact dashboard review card previews at most 32 KiB per text artifact and 128 KiB total. The dedicated **Content** workspace uses a separate bounded reader of 512 KiB per text artifact and 2 MiB total per record so normal concept/copy packages render in full. Larger text deliverables must be split into reviewable artifacts in this alpha; the UI keeps integrity metadata visible when a bounded preview is refused. A separate, capability-protected endpoint serves only manifest-declared, independently hash-verified PNG, JPEG, WebP, MP4, or WebM artifacts for inline preview (12 MiB image / 48 MiB video limit, no public storage URL). This is a read-only preview path, not a media upload or provenance pipeline.
 
 ### Recover an expired claim
 

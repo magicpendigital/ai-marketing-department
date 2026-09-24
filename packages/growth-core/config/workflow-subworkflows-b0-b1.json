@@ -56,10 +56,11 @@
         { "id": "W2.1_claim_resolution", "inputs": ["approved_brief", "product_truth"], "output": "allowed_claim_set", "failureState": "blocked", "idempotencyKey": "tenantId:briefVersion:claimSet" },
         { "id": "W2.2_concept_variants", "inputs": ["approved_brief", "allowed_claim_set", "brand_pack"], "output": "three_or_more_concepts", "failureState": "blocked", "idempotencyKey": "tenantId:briefVersion:conceptSet" },
         { "id": "W2.3_locale_aware_copy", "inputs": ["three_or_more_concepts", "brand_pack"], "output": "copy_draft", "failureState": "blocked", "idempotencyKey": "tenantId:conceptSetVersion:locale" },
-        { "id": "W2.4_visual_and_accessibility_direction", "inputs": ["copy_draft", "licensed_or_owned_asset_references", "brand_pack"], "output": "visual_brief", "failureState": "blocked", "idempotencyKey": "tenantId:copyVersion:visualBrief" },
-        { "id": "W2.5_automated_hard_fail_lint", "inputs": ["copy_draft", "visual_brief", "allowed_claim_set"], "output": "lint_verdict", "failureState": "blocked", "idempotencyKey": "tenantId:packageVersion:lintRulesVersion" },
-        { "id": "W2.6_independent_qa", "inputs": ["lint_verdict", "copy_draft", "visual_brief", "product_truth"], "output": "qa_verdict_or_repair", "failureState": "blocked", "idempotencyKey": "tenantId:packageVersion:qaRubricVersion" },
-        { "id": "W2.7_human_decision", "inputs": ["qa_verdict_or_repair"], "output": "internal_review_record", "failureState": "repair_required", "idempotencyKey": "tenantId:packageVersion:humanDecision" }
+        { "id": "W2.4_final_media_production", "inputs": ["copy_draft", "media_delivery_policy", "licensed_or_owned_asset_references", "brand_pack"], "output": "final_image_or_video_files_with_provenance", "failureState": "blocked", "idempotencyKey": "tenantId:copyVersion:mediaFileHashes" },
+        { "id": "W2.5_channel_preview_assembly", "inputs": ["copy_draft", "final_image_or_video_files_with_provenance", "target_channels", "required_locales"], "output": "complete_channel_locale_post_previews", "failureState": "blocked", "idempotencyKey": "tenantId:packageVersion:previewAssembly" },
+        { "id": "W2.6_automated_hard_fail_lint", "inputs": ["complete_channel_locale_post_previews", "allowed_claim_set", "media_delivery_policy"], "output": "lint_verdict_bound_to_copy_and_media_hashes", "failureState": "blocked", "idempotencyKey": "tenantId:packageVersion:lintRulesVersion" },
+        { "id": "W2.7_independent_qa", "inputs": ["lint_verdict_bound_to_copy_and_media_hashes", "complete_channel_locale_post_previews", "product_truth"], "output": "qa_verdict_or_repair", "failureState": "blocked", "idempotencyKey": "tenantId:packageVersion:qaRubricVersion" },
+        { "id": "W2.8_human_decision", "inputs": ["qa_verdict_or_repair"], "output": "version_bound_internal_review_record", "failureState": "repair_required", "idempotencyKey": "tenantId:packageVersion:humanDecision" }
       ],
       "humanGate": "editor_or_owner_decision"
     },

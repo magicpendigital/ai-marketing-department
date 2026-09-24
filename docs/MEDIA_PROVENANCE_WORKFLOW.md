@@ -1,6 +1,6 @@
 # Media provenance and production workflow
 
-Status: proposed extension for a later Canvas increment. The contracts are implemented as incubating schemas; media upload, storage, rendering, playback, and publishing are not activated in the local alpha.
+Status: partial read-only preview support is implemented in Local Canvas. When a verified work order already contains a valid, declared PNG/JPEG/WebP/MP4/WebM artifact, the authorized local endpoint can serve it to the channel preview after re-verifying job evidence, exact hash, byte limit, file signature, and tenant path. Upload/ingest, safe proxy generation, rights evidence collection, editing, media production, and publishing remain inactive. Incubating contracts are not promoted into the active production contract index.
 
 ## Current capability audit
 
@@ -10,12 +10,13 @@ The current framework has a useful policy skeleton but not a complete media-prod
 | --- | --- | --- |
 | Visual direction in a content package | Partial | `visualBrief` can describe source, reference, rights, provenance, accessibility, storyboard, and transcript. |
 | Rights/provenance hard failure | Partial | Unknown rights or missing provenance can block a draft during lint and independent QA. |
-| Owner evidence review | Implemented for text artifacts | The Content workspace shows the verified artifact, QA evidence, source metadata, version and decision history. |
+| Owner evidence review | Implemented for text; binary media preview is partial | The Content workspace shows verified copy, QA evidence, source metadata, version and decision history. A separate bounded endpoint may render only hash-bound image/video artifacts already declared in that work order. |
 | Full copy and version review | Implemented for text artifacts | The `Nội dung` area lists pending, approved and revision-requested records and renders complete localized copy alternatives. |
-| Image/video gallery and player | Not implemented | A manager cannot yet browse image versions, play a video, compare crops, or inspect frame-level annotations in Canvas. |
+| Channel copy + media preview | Implemented as a bounded simulation | Facebook, Instagram, LinkedIn, and blog layouts compose the selected text variant with the selected verified media file. If no file exists, Canvas labels that the visual brief is text only. It does not guarantee the live platform's exact rendering. |
+| Image/video preview | Partial | A manager can view an attached, verified image or play a browser-supported video. There is no gallery, crop comparison, frame annotation, transcoding, or media-version management. |
 | Binary media ingest and private storage | Not implemented | There is no tenant media library, resumable upload, malware scan, checksum ingest, metadata stripping, or retention workflow. |
-| Real-world capture operation | Not implemented | There is no shot-list assignment, capture receipt, camera-original binding, release collection, or reshoot loop. |
-| Generative media production | Not implemented | There is no image/video generation or rendering adapter. A content brief may describe visuals, but does not create them. |
+| Real-world capture operation and edit | Not implemented | There is no shot-list assignment, capture receipt, camera-original binding, release collection, edit history, or reshoot loop. A future `real_capture_only` lane may allow crop, conventional colour correction, subtitles, and a brand-layout overlay while preserving the source original and hash; generative fill or synthetic additions must be blocked. |
+| Generative media production | Not implemented by the framework | A Coding Agent may use a locally available image/video skill only when the brief permits generation. The currently callable Codex environment has native `imagegen` and optional Remotion/HyperFrames and animation skills; other Coding Agent installations are not assumed to have them. The framework itself does not install plugins or create media through a vendor API. |
 | Controlled publishing | Not implemented | W4 remains deferred. An internal approval does not authorize upload, scheduling, posting, or ad spend. |
 
 This distinction matters: a rights label inside a copy package is an assertion. A production-ready media lane needs evidence that binds the request, original files, edits, releases, QA, and approvals to exact hashes.
@@ -117,11 +118,12 @@ Internal approval adds the asset to a reviewed media library. It still cannot po
 
 ## Manager-facing Canvas requirements
 
-The current Canvas implements the review inbox and full text-content detail. The media detail remains an incubating requirement:
+The current Canvas implements the review inbox, full text-content detail, and bounded preview of existing binary work-order artifacts. The wider media detail remains an incubating requirement:
 
 1. **Review inbox — implemented for W2 text artifacts:** filters `needs review`, `approved internal`, and `revision requested`, with the selected task state and decision actions.
 2. **Content detail — implemented for W2 text artifacts:** full localized alternatives, current artifact integrity, media/source metadata contained in the package, QA rubric, versions, and decision history.
-3. **Media detail — not implemented:** safe image gallery or video/audio player, original/derivative list, real/generated/licensed badge, edit history, shot-list coverage, accessibility preview, rights and release status, expiry, QA, and approval invalidation warnings.
+3. **Channel preview — partial:** channel-layout simulations include full copy and a selected, hash-verified media artifact. A task with only a visual brief shows a clear missing-file state. These simulations are not platform SDK output or publish previews.
+4. **Media operations detail — not implemented:** complete image gallery and video/audio operations, original/derivative lineage, real/generated/licensed badge validation, edit history, shot-list coverage, accessibility validation, rights/releases and expiry checks, independent media QA, and approval invalidation warnings.
 
 Raw technical JSON remains downloadable for audit, but it should not be the primary manager interface. Media files must be streamed from tenant-private storage through an authorized endpoint; Canvas must never expose a storage path as a public URL.
 

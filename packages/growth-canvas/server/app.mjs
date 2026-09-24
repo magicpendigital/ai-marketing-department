@@ -149,6 +149,8 @@ const decodedJobId = (encoded) => {
 };
 
 const routeFor = (pathname) => {
+  const mediaPreviewMatch = pathname.match(/^\/api\/jobs\/([^/]+)\/media-preview$/);
+  if (mediaPreviewMatch) return { name: "mediaPreview", jobId: decodedJobId(mediaPreviewMatch[1]) };
   const contentRecordMatch = pathname.match(/^\/api\/jobs\/([^/]+)\/content-record$/);
   if (contentRecordMatch) return { name: "contentRecord", jobId: decodedJobId(contentRecordMatch[1]) };
   const reviewBundleMatch = pathname.match(/^\/api\/jobs\/([^/]+)\/review-bundle$/);
@@ -232,9 +234,25 @@ export const createCanvasRequestHandler = ({ workspace, accessCapability = crypt
           return;
         }
 
+        if (request.method === "GET" && route.name === "mediaPreview") {
+          const media = store.readArtifactMediaPreview(route.jobId, url.searchParams.get("reference") ?? "");
+          response.writeHead(200, {
+            "Content-Type": media.mediaType,
+            "Content-Length": media.bytes,
+            "Cache-Control": "private, no-store",
+            "Content-Disposition": "inline; filename=verified-media-preview",
+            "Cross-Origin-Resource-Policy": "same-origin",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+            "X-Canvas-Artifact-SHA256": media.hash
+          });
+          response.end(media.content);
+          return;
+        }
+
         if (request.method === "POST" && route.name === "/api/jobs") {
           const body = await readJsonBody(request);
-          assertExactKeys(body, ["jobId", "workflowId", "title", "campaignSummary", "managerTaskDescription"]);
+          assertExactKeys(body, ["jobId", "workflowId", "title", "campaignSummary", "managerTaskDescription", "targetChannels", "subagentTemplateIds", "mediaDeliveryRequirement", "w2ProductionOrder"]);
           if (body.workflowId !== undefined && body.workflowId !== "W2_content_factory") {
             throw new CanvasHttpError(400, "workflow_not_supported", "Canvas alpha creates W2_content_factory jobs only.");
           }
