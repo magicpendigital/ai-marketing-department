@@ -59,14 +59,20 @@ test("coding-agent handoff creates a provider-neutral work order without request
       workflowId: "W2_content_factory",
       outputPath,
       jobId: "coding-agent-content-001",
-      adapterMode: "coding_agent_handoff"
+      adapterMode: "coding_agent_handoff",
+      targetChannels: ["facebook"],
+      mediaDeliveryRequirement: "required",
+      w2ProductionOrder: ["media", "copy"]
     });
 
     assert.equal(job.workOrderVersion, "1.0.0");
     assert.equal(job.lifecycleState, "prepared");
     assert.equal(job.requestedCapability, "content_authoring");
     assert.equal(job.assignedAgentRole, "content_studio");
-    assert.deepEqual(job.subagentTemplateIds, ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"]);
+    assert.deepEqual(job.subagentTemplateIds, ["brief_expander", "locale_editor", "media_asset_producer", "visual_accessibility_brief_checker", "post_assembler"]);
+    assert.deepEqual(job.targetChannels, ["facebook"]);
+    assert.equal(job.mediaDeliveryRequirement, "required");
+    assert.deepEqual(job.w2ProductionOrder, ["media", "copy"]);
     assert.equal(job.managerReview.decisionRequired, "editor_or_owner_decision");
     assert.ok(job.managerReview.checklist.length >= 4);
     assert.equal(job.promptVersion, "repository_instructions_and_skill_contract_1");

@@ -14,7 +14,7 @@ Read the matching skill under `skills/<skill-id>/SKILL.md` before beginning a wo
 | --- | --- | --- | --- | --- | --- | --- |
 | Establish a new business boundary | W0 | Growth orchestrator + ProductTruth claim guard | `growth-readiness` | Tenant config, BrandPack, BusinessPack, ProductTruth, privacy map, channel map, journey map | Readiness record | Any external action or assumption about a claim |
 | Learn audience jobs or objections | W1 | Research and JTBD + Positioning experiment | `growth-research`, `growth-positioning` | Approved source register, sanitized summaries, ProductTruth, journey/event map | Research hypothesis and versioned brief | Outreach, sensitive inference, or a market claim presented as fact |
-| Produce internal content alternatives | W2 | Content studio | `growth-content-factory` | Accepted brief, ProductTruth, BrandPack, required locales, owned/licensed asset references | Concept/copy package | Self-approval, publish, send, schedule, or paid media |
+| Produce internal content alternatives | W2 | Content studio | `growth-content-factory` | Accepted brief, ProductTruth, BrandPack, task locale/channel/media policy, owned/licensed asset references | Per-channel content items with localized copy and final media files when required, assembled review previews, provenance | Self-approval, publish, send, schedule, or paid media |
 | Check a draft independently | W2 | Independent QA | `growth-quality-gate` | Exact asset version, lint result, evidence, BrandPack, provenance | QA verdict or repair request | Overriding a hard failure |
 | Plan a future channel package | Deferred W3–W5 | Distribution planner | `growth-execution-preflight` | A separate future execution envelope | Internal preflight checklist | Channel login, OAuth, posting, sending, or spending |
 | Analyze aggregate learning | W6 | Journey measurement | `growth-journey-measurement`, `growth-learning-synthesis` | Approved aggregate LearningExport, QA outcomes, experiment and metric versions | Learning note and ticket draft | Individual analysis or automatic change |
@@ -25,7 +25,7 @@ The configured cells may delegate only the minimum input needed for a bounded ta
 
 - **Readiness:** evidence-reference, identity-boundary, and capability-matrix checks.
 - **Research:** source-register review, JTBD synthesis, and research-risk checks.
-- **Content:** brief expansion, locale editing, and visual-accessibility checks.
+- **Content:** brief expansion, locale editing, final media production, visual-accessibility review, and completed channel-preview assembly.
 - **Quality:** claim/evidence, safety/privacy, and rights/locale checks.
 - **Learning:** denominator, aggregate-privacy, and hypothesis-synthesis checks.
 

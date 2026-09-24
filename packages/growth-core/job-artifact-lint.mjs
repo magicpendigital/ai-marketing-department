@@ -100,6 +100,18 @@ const hasDisabledExternalAuthority = (authority) => isPlainObject(authority)
   && Object.keys(disabledExternalAuthority).every((key) => authority[key] === false)
   && Object.keys(authority).length === Object.keys(disabledExternalAuthority).length;
 
+const hasFinalMediaSignature = (file) => {
+  const buffer = file?.buffer;
+  if (!Buffer.isBuffer(buffer)) return false;
+  const extension = path.extname(file.reference).toLowerCase();
+  if (extension === ".png") return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (extension === ".jpg" || extension === ".jpeg") return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (extension === ".webp") return buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP";
+  if (extension === ".mp4") return buffer.length >= 8 && buffer.toString("ascii", 4, 8) === "ftyp";
+  if (extension === ".webm") return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])) && buffer.includes(Buffer.from("webm"));
+  return false;
+};
+
 const lintConceptPackage = ({ value, reference, manifest, tenant, evaluatedAt }) => {
   const errors = validateContractInstance(frameworkRoot, "schemas/asset-package.schema.json", value, reference);
   const hardFailures = new Set();
@@ -246,7 +258,8 @@ export const computeGrowthJobArtifactLint = ({ workspace, manifest, attemptId, r
       const requiredStageWorkers = [
         ["W2.2", "brief_expander"],
         ["W2.3", "locale_editor"],
-        ["W2.4", "visual_accessibility_brief_checker"]
+        ["W2.4", "media_asset_producer"],
+        ["W2.5", "post_assembler"]
       ];
       if (steps.some((step) => step.channelId && !targetChannels.includes(step.channelId))) {
         hardFailures.add("artifact_contract_invalid");
@@ -266,6 +279,13 @@ export const computeGrowthJobArtifactLint = ({ workspace, manifest, attemptId, r
           if (outputReferences.length === 0 || outputReferences.some((item) => !files.some((file) => file.reference === item))) {
             hardFailures.add("artifact_contract_invalid");
             errors.push(`${reference}: ${stepId} for ${channelId} must point to output artifacts included in the reviewed set.`);
+          }
+          if (stepId === "W2.4" && manifest.mediaDeliveryRequirement === "required") {
+            const finalMediaFiles = outputReferences.map((reference) => files.find((file) => file.reference === reference)).filter(hasFinalMediaSignature);
+            if (finalMediaFiles.length === 0) {
+              hardFailures.add("final_media_missing");
+              errors.push(`${reference}: W2.4 for ${channelId} must reference a real final PNG/JPEG/WebP/MP4/WebM file whose bytes match the declared media signature; prompts, storyboards, briefs and text notes do not qualify.`);
+            }
           }
         }
       }

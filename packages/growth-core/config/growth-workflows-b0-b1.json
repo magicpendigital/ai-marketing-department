@@ -23,7 +23,7 @@
     {
       "id": "W2_content_factory",
       "ownerCapability": "content_authoring",
-      "steps": ["brief", "three_concepts", "asset_draft", "deterministic_lint", "independent_qa", "human_decision"],
+      "steps": ["claim_resolution", "three_concepts", "locale_copy", "final_media_files", "assembled_channel_preview", "deterministic_lint", "independent_qa", "human_decision"],
       "output": "internal_asset_package",
       "humanGate": "editor_or_owner_decision",
       "stopCondition": "No publish, schedule, send or paid placement."

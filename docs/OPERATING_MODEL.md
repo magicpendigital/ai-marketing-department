@@ -10,7 +10,7 @@ The operating model separates creative production from truth, quality, and execu
 | Research and JTBD | Approved-source summaries and audience/job hypotheses | Outreach, sensitive inference, or a market conclusion presented as fact |
 | ProductTruth claim guard | Claim allow/block decision tied to current evidence | Overriding evidence or inventing a claim |
 | Positioning experiment | Evidence-bounded positioning and experiment brief | Selecting an external audience or making an offer |
-| Content studio | Locale-complete concept, copy, visual brief, and provenance references | Self-approval, unlicensed material, or execution |
+| Content studio | Locale-complete concept and copy, final channel-ready image/video when required, assembled preview, and provenance references | Self-approval, unlicensed material, or execution |
 | Independent QA | Claim, safety, privacy, rights, locale, accessibility, and traceability verdict | Overriding a hard failure |
 | Distribution planner | Channel-specific draft package and preflight checklist | Channel login, scheduling, posting, sending, or receipt collection |
 | Journey measurement | Aggregate metric plan and learning note | Individual-level behavior analysis or product change |
@@ -28,8 +28,10 @@ The execution-preflight skill documents future W3, W4, and W5 requirements, but 
 ```mermaid
 flowchart TD
   A[W0: tenant readiness] --> B[W1: research and experiment brief]
-  B --> C[W2: content draft]
-  C --> D[Deterministic lint]
+  B --> C[W2: concept and copy]
+  C --> M[Final media production when required]
+  M --> P[Assemble complete channel preview]
+  P --> D[Deterministic lint]
   D --> E[Independent QA]
   E --> F{Human decision}
   F -->|revise| C
@@ -53,7 +55,7 @@ Every W1 or W2 artifact must have:
 - deterministic lint outcome, independent QA outcome, and repair history;
 - an approval state no later than `qa_pass_pending_human` during the first release.
 
-Changes to copy, visual brief, claim reference, destination, target channel, schedule, or budget invalidate any prior approval envelope.
+Changes to copy, final media, rights/provenance, claim reference, destination, target channel, schedule, or budget invalidate any prior approval envelope. A visual brief or prompt is production guidance, not a final media deliverable.
 
 For a Canvas job, the work-order lead writes only the lead run receipt and must leave `qualityGateStatus` as `not_run`. Before an independent reviewer can record a pass, the framework computes `deterministic-lint.json` from the exact artifact bytes plus current BrandPack, ProductTruth, and role-mapping bytes. The receipt validates the W2 `concept_copy_package` contract, internal-only authority, claim evidence, locale/accessibility coverage, rights/provenance, sensitive-data rules, and hard-fail copy patterns. A separate role resolved from the tenant's `quality_assurance` mapping writes `qa-verdict.json`; that role must differ from the assigned lead and bind the active claim attempt to the same SHA-256 and byte count of every reviewed artifact. Completion and owner review recompute the deterministic receipt and rehash those artifacts, so a reviewer cannot self-declare lint success. A revision archives the prior attempt records and artifact bytes before a new attempt may begin.
 

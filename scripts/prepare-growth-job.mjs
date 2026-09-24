@@ -35,11 +35,11 @@ const jobDefinitions = Object.freeze({
     outputArtifactType: "concept_copy_package",
     requestedCapability: "content_authoring",
     assignedAgentRole: "content_studio",
-    subagentTemplateIds: ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"],
-    taskDescription: "Create an internal concept, copy, and visual-direction package from the approved brief, using only allowed claims, locales, and owned or licensed asset references.",
+    subagentTemplateIds: ["brief_expander", "locale_editor", "media_asset_producer", "visual_accessibility_brief_checker", "post_assembler"],
+    taskDescription: "Create an internal concept and channel-specific copy, produce or edit the requested final media files, assemble complete channel previews, then stop for deterministic lint, independent QA, and owner review.",
     managerReview: {
       decisionRequired: "editor_or_owner_decision",
-      checklist: ["The concept answers the approved audience job", "Copy matches the BrandPack and allowed claims", "Required locales, rights, and accessibility are complete", "Deterministic lint and independent QA are attached"]
+      checklist: ["The concept answers the approved audience job", "Copy matches the BrandPack and allowed claims", "Final media files (when required), rights, and accessibility are complete", "Each channel post is assembled from exact copy and media", "Deterministic lint and independent QA are attached"]
     }
   },
   W6_learning_to_product: {
@@ -187,6 +187,7 @@ const prepareSafeOutputPath = ({ tenantRoot, outputPath }) => {
 };
 
 const allowedContentChannels = new Set(["facebook", "instagram", "linkedin", "blog"]);
+const allowedW2ProductionOrders = new Set(["copy", "media"]);
 
 const normalizeW2Assignments = ({ workflowId, definition, targetChannels, subagentTemplateIds }) => {
   if (targetChannels !== undefined && workflowId !== "W2_content_factory") {
@@ -216,7 +217,7 @@ const normalizeW2Assignments = ({ workflowId, definition, targetChannels, subage
   return { channels, subagents };
 };
 
-export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, adapterMode = "disabled", targetChannels, subagentTemplateIds }) => {
+export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, adapterMode = "disabled", targetChannels, subagentTemplateIds, mediaDeliveryRequirement, w2ProductionOrder }) => {
   if (!jobDefinitions[workflowId]) throw new Error(`Unsupported internal workflow: ${workflowId || "unknown"}.`);
   if (!jobIdPattern.test(jobId || "")) throw new Error("Job id must use lowercase letters, digits, and hyphens, and be 3–80 characters long.");
   if (!allowedAdapterModes.has(adapterMode)) throw new Error("Adapter mode must be disabled, mock, owner_configured, or coding_agent_handoff.");
@@ -231,6 +232,16 @@ export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, ad
   const tenantConfig = JSON.parse(fs.readFileSync(path.join(resolvedTenantRoot, "tenant-config.json"), "utf8"));
   const definition = jobDefinitions[workflowId];
   const assignments = normalizeW2Assignments({ workflowId, definition, targetChannels, subagentTemplateIds });
+  if (mediaDeliveryRequirement !== undefined && (workflowId !== "W2_content_factory" || !["required", "not_required"].includes(mediaDeliveryRequirement))) {
+    throw new Error("Media delivery requirement must be required or not_required for W2 content work orders.");
+  }
+  if (w2ProductionOrder !== undefined && (workflowId !== "W2_content_factory"
+    || !Array.isArray(w2ProductionOrder)
+    || w2ProductionOrder.length !== allowedW2ProductionOrders.size
+    || new Set(w2ProductionOrder).size !== allowedW2ProductionOrders.size
+    || w2ProductionOrder.some((step) => !allowedW2ProductionOrders.has(step)))) {
+    throw new Error("W2 production order must contain copy and media exactly once; quality and owner gates cannot be moved.");
+  }
   const channelInstruction = assignments.channels?.length
     ? ` Produce a separate, channel-specific content package for each assigned target channel (${assignments.channels.join(", ")}); tag every copy and media item with its channelId and never reuse an untagged generic variant across channels.`
     : " If target channels are not present, stop and ask the owner to create a new work order with explicit channels before drafting channel-specific content.";
@@ -261,6 +272,8 @@ export const prepareGrowthJob = ({ tenantRoot, workflowId, outputPath, jobId, ad
     hardStop: "This manifest prepares an internal job only. It cannot invoke a provider, access a credential, publish, send, schedule, create a campaign, upload an audience, spend money, or change a product."
   };
   if (assignments.channels) job.targetChannels = assignments.channels;
+  if (workflowId === "W2_content_factory" && mediaDeliveryRequirement !== undefined) job.mediaDeliveryRequirement = mediaDeliveryRequirement;
+  if (workflowId === "W2_content_factory" && w2ProductionOrder !== undefined) job.w2ProductionOrder = w2ProductionOrder;
   const safeOutputPath = prepareSafeOutputPath({ tenantRoot: resolvedTenantRoot, outputPath: resolvedOutput });
   const fileDescriptor = fs.openSync(safeOutputPath, "wx", 0o600);
   try {

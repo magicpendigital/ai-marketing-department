@@ -88,6 +88,8 @@ test("W2 work-log contract supports manager inspection without storing private r
   const workOrder = readJson("packages/growth-contracts/schemas/agent-work-order.schema.json");
   assert.ok(index.contracts.includes("schemas/agent-work-log.schema.json"));
   assert.deepEqual(workOrder.properties.targetChannels.items.enum, ["facebook", "instagram", "linkedin", "blog"]);
+  assert.deepEqual(workOrder.properties.mediaDeliveryRequirement.enum, ["required", "not_required"]);
+  assert.deepEqual(workOrder.properties.w2ProductionOrder.items.enum, ["copy", "media"]);
   const valid = {
     schemaVersion: "1.0.0", artifactKind: "agent_work_log", jobId: "work-log-job-001", tenantId: "test-tenant",
     workflowId: "W2_content_factory", attemptId: "work-log-attempt-001", createdAt: "2026-09-23T09:00:00.000Z",

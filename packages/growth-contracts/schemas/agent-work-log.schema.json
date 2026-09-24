@@ -21,7 +21,7 @@
         "type": "object",
         "required": ["stepId", "label", "workerId", "workerType", "status", "summary", "inputReferences", "outputReferences", "startedAt", "finishedAt"],
         "properties": {
-          "stepId": { "type": "string", "pattern": "^W2\\.[1-7]$" },
+          "stepId": { "type": "string", "pattern": "^W2\\.[1-8]$" },
           "channelId": { "enum": ["facebook", "instagram", "linkedin", "blog"] },
           "label": { "type": "string", "minLength": 1, "maxLength": 160 },
           "workerId": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,79}$" },

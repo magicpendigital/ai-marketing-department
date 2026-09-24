@@ -68,6 +68,18 @@
       "items": { "enum": ["facebook", "instagram", "linkedin", "blog"] },
       "description": "The channels selected when a W2 work order is created. A preview must not expose channels absent from this immutable list."
     },
+    "mediaDeliveryRequirement": {
+      "enum": ["required", "not_required"],
+      "description": "If required, W2 cannot pass deterministic lint until each assigned channel has at least one final image/video file with a verified supported media signature in the exact reviewed artifact set."
+    },
+    "w2ProductionOrder": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": { "enum": ["copy", "media"] },
+      "description": "Owner-selected priority order for the two independent production branches. Both must finish before preview assembly; automated QA and owner decision remain locked in order."
+    },
     "taskDescription": { "type": "string", "minLength": 1, "maxLength": 4000 },
     "managerReview": {
       "type": "object",

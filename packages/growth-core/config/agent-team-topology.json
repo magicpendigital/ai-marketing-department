@@ -22,7 +22,7 @@
     {
       "id": "content_cell",
       "leadAgent": "content_studio",
-      "subagentTemplates": ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"],
+      "subagentTemplates": ["brief_expander", "locale_editor", "media_asset_producer", "visual_accessibility_brief_checker", "post_assembler"],
       "inputs": ["approved_brief", "brand_pack", "product_truth"],
       "output": "concept_copy_package",
       "humanGate": "editor_or_owner_decision"

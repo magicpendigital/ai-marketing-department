@@ -1,18 +1,18 @@
 export const agentRoster = Object.freeze([
-  { id: "growth_orchestrator", label: "Điều phối tăng trưởng", capability: "Điều phối workflow", purpose: "Giữ đúng phạm vi task, thứ tự các cổng và ranh giới an toàn." },
-  { id: "research_jtbd", label: "Nghiên cứu nhu cầu", capability: "Nghiên cứu nội dung", purpose: "Tổng hợp nguồn được duyệt thành giả thuyết nhu cầu và phản đối của khách hàng." },
-  { id: "product_truth_claim_guard", label: "Kiểm soát sự thật sản phẩm", capability: "Quản lý sản phẩm", purpose: "Đối chiếu tuyên bố marketing với tính năng và bằng chứng hiện có." },
-  { id: "positioning_experiment", label: "Định vị & thử nghiệm", capability: "Quản lý sản phẩm", purpose: "Soạn giả thuyết định vị và kế hoạch thử nghiệm để chủ doanh nghiệp duyệt." },
-  { id: "content_studio", label: "Studio nội dung", capability: "Sản xuất nội dung", purpose: "Tạo bản nháp nội dung theo brief, thương hiệu, bằng chứng và kênh được chỉ định." },
-  { id: "independent_qa", label: "Kiểm định độc lập", capability: "Đảm bảo chất lượng", purpose: "Kiểm tra nội dung, bằng chứng, quyền, an toàn, locale và truy vết độc lập với người tạo." },
-  { id: "distribution_planner", label: "Lập kế hoạch phân phối", capability: "Vận hành thiết kế", purpose: "Chuẩn bị gói và checklist theo kênh; chưa kết nối hoặc xuất bản." },
-  { id: "journey_measurement", label: "Đo lường hành trình", capability: "Phân tích đo lường", purpose: "Định nghĩa chỉ số funnel có mẫu số, thời gian, chủ sở hữu và guardrail rõ ràng." },
+  { id: "growth_orchestrator", label: "Điều phối tăng trưởng", capability: "Điều phối workflow", purpose: "Giữ đúng phạm vi task, thứ tự các cổng và ranh giới an toàn.", inputs: "Readiness, workflow đã chọn, kết quả từng bước và quyết định của chủ doanh nghiệp.", outputs: "Handoff có phạm vi, trạng thái, điểm chặn và bước tiếp theo rõ ràng.", boundary: "Không tự mở rộng phạm vi, truy cập thông tin bí mật hoặc thực hiện hành động bên ngoài." },
+  { id: "research_jtbd", label: "Nghiên cứu nhu cầu", capability: "Nghiên cứu nội dung", purpose: "Tổng hợp nguồn được duyệt thành giả thuyết nhu cầu và phản đối của khách hàng.", inputs: "Nguồn công khai đã duyệt và ghi chú nghiên cứu đã khử định danh.", outputs: "Nhu cầu, phản đối, giả thuyết và mức độ tin cậy có nguồn dẫn.", boundary: "Không liên hệ người dùng, suy luận thuộc tính nhạy cảm hoặc trình bày giả thuyết như dữ kiện." },
+  { id: "product_truth_claim_guard", label: "Kiểm soát sự thật sản phẩm", capability: "Quản lý sản phẩm", purpose: "Đối chiếu tuyên bố marketing với tính năng và bằng chứng hiện có.", inputs: "ProductTruth, phiên bản build, bằng chứng và bề mặt được phép.", outputs: "Danh sách claim được phép, bị chặn hoặc cần chủ sản phẩm xác nhận.", boundary: "Không tự bịa bằng chứng hay mở rộng claim đã được duyệt." },
+  { id: "positioning_experiment", label: "Định vị & thử nghiệm", capability: "Quản lý sản phẩm", purpose: "Soạn giả thuyết định vị và kế hoạch thử nghiệm để chủ doanh nghiệp duyệt.", inputs: "Nghiên cứu đã duyệt, ProductTruth và mục tiêu kinh doanh.", outputs: "Giả thuyết giá trị, phương án thông điệp và kế hoạch đo lường.", boundary: "Không tự chọn audience, offer, giá hoặc tuyên bố đưa ra bên ngoài." },
+  { id: "content_studio", label: "Studio nội dung", capability: "Sản xuất nội dung", purpose: "Tạo bản nháp nội dung theo brief, thương hiệu, bằng chứng và kênh được chỉ định.", inputs: "Brief, claim set, BrandPack, locale và cấu hình media.", outputs: "Concept và bộ nội dung theo từng kênh, locale, item ID.", boundary: "Không tự duyệt sản phẩm của mình hoặc biến brief media thành tệp media đã hoàn thiện." },
+  { id: "independent_qa", label: "Kiểm định độc lập", capability: "Đảm bảo chất lượng", purpose: "Kiểm tra nội dung, bằng chứng, quyền, an toàn, locale và truy vết độc lập với người tạo.", inputs: "Bản nội dung đã ghép hoàn chỉnh, tệp media cuối, lint và provenance.", outputs: "Verdict theo đúng phiên bản, hash và các lỗi cần sửa.", boundary: "Không bỏ qua hard fail hoặc tự thay quyết định của chủ doanh nghiệp." },
+  { id: "distribution_planner", label: "Lập kế hoạch phân phối", capability: "Vận hành thiết kế", purpose: "Chuẩn bị gói và checklist theo kênh; chưa kết nối hoặc xuất bản.", inputs: "Bản nội dung đã duyệt nội bộ và năng lực kênh được xác minh.", outputs: "Preflight checklist và execution envelope ở giai đoạn tương lai.", boundary: "Hiện chưa đăng, lên lịch, gửi, kết nối tài khoản hoặc thu biên nhận." },
+  { id: "journey_measurement", label: "Đo lường hành trình", capability: "Phân tích đo lường", purpose: "Định nghĩa chỉ số funnel có mẫu số, thời gian, chủ sở hữu và guardrail rõ ràng.", inputs: "Metric map, nguồn dữ liệu đã duyệt và LearningExport tổng hợp.", outputs: "Chẩn đoán funnel, giả thuyết cải thiện và ticket nháp.", boundary: "Không phân tích hồ sơ cá nhân hoặc tự thay đổi sản phẩm/chiến dịch." },
 ]);
 
 export const workflowCells = Object.freeze([
   { id: "readiness_cell", label: "Sẵn sàng & kiểm soát sự thật", leadAgent: "product_truth_claim_guard", subagents: ["evidence_reference_checker", "identity_boundary_checker", "capability_matrix_checker"] },
   { id: "research_cell", label: "Nghiên cứu khách hàng", leadAgent: "research_jtbd", subagents: ["source_register_reviewer", "jtbd_synthesizer", "research_risk_checker"] },
-  { id: "content_cell", label: "Sản xuất nội dung", leadAgent: "content_studio", subagents: ["brief_expander", "locale_editor", "visual_accessibility_brief_checker"] },
+  { id: "content_cell", label: "Sản xuất nội dung", leadAgent: "content_studio", subagents: ["brief_expander", "locale_editor", "media_asset_producer", "visual_accessibility_brief_checker", "post_assembler"] },
   { id: "quality_cell", label: "Kiểm định độc lập", leadAgent: "independent_qa", subagents: ["claim_evidence_linter", "safety_privacy_linter", "rights_and_locale_linter"] },
   { id: "learning_cell", label: "Phân tích & học hỏi", leadAgent: "journey_measurement", subagents: ["metric_denominator_checker", "aggregate_privacy_checker", "learning_hypothesis_synthesizer"] },
 ]);
@@ -26,7 +26,9 @@ export const subagentRoster = Object.freeze([
   { id: "research_risk_checker", label: "Kiểm tra rủi ro nghiên cứu", purpose: "Chặn suy diễn nhạy cảm, outreach chưa được duyệt và kết luận vượt quá dữ liệu." },
   { id: "brief_expander", label: "Mở rộng brief thành concept", purpose: "Chuyển brief được duyệt thành hướng sáng tạo có mục tiêu và cơ chế riêng." },
   { id: "locale_editor", label: "Biên tập theo ngôn ngữ", purpose: "Tạo và rà soát từng locale theo giọng thương hiệu, không dịch máy móc." },
-  { id: "visual_accessibility_brief_checker", label: "Rà soát hình ảnh & accessibility", purpose: "Kiểm tra hướng dẫn media, quyền, mô tả thay thế và khả năng tiếp cận." },
+  { id: "media_asset_producer", label: "Sản xuất tệp media cuối", purpose: "Tạo hoặc biên tập tệp ảnh/video hoàn thiện theo policy nguồn đã chọn; bàn giao file thật kèm provenance, không bàn giao prompt thay cho media." },
+  { id: "visual_accessibility_brief_checker", label: "Rà soát media & accessibility", purpose: "Kiểm tra tệp cuối, crop theo kênh, quyền, provenance, caption/alt text và khả năng tiếp cận." },
+  { id: "post_assembler", label: "Ghép bài preview theo kênh", purpose: "Ghép đúng copy, locale, kênh và media cuối thành bài hoàn chỉnh để lint và QA đánh giá." },
   { id: "claim_evidence_linter", label: "Rà soát tuyên bố & bằng chứng", purpose: "Phát hiện tuyên bố thiếu nguồn, lỗi thời hoặc sai phạm vi sản phẩm." },
   { id: "safety_privacy_linter", label: "Rà soát an toàn & riêng tư", purpose: "Tìm dữ liệu cá nhân, nhắm mục tiêu nhạy cảm và nội dung có hại." },
   { id: "rights_and_locale_linter", label: "Rà soát quyền & locale", purpose: "Kiểm tra quyền media, bản quyền, ngôn ngữ và yêu cầu theo thị trường." },
@@ -64,10 +66,11 @@ export const workflowDefinitions = Object.freeze([
       ["W2.1", "Chốt tuyên bố được phép", "Claim set có nguồn", "product_truth_claim_guard"],
       ["W2.2", "Phát triển concept theo kênh", "Concept riêng cho mỗi kênh đã chọn", "brief_expander"],
       ["W2.3", "Viết nội dung theo locale & kênh", "Bản copy có channelId", "locale_editor"],
-      ["W2.4", "Hướng dẫn media & accessibility", "Visual brief, quyền và alt text", "visual_accessibility_brief_checker"],
-      ["W2.5", "Kiểm tra tự động tất định", "Kết quả lint và lỗi cần sửa", "deterministic_gate"],
-      ["W2.6", "QA độc lập", "Verdict, điểm và bằng chứng theo phiên bản", "independent_qa"],
-      ["W2.7", "Chủ doanh nghiệp quyết định", "Duyệt nội bộ, sửa hoặc chặn", "human_gate"],
+      ["W2.4", "Sản xuất media hoàn thiện", "Tệp ảnh/video cuối có provenance", "media_asset_producer"],
+      ["W2.5", "Ghép bài preview hoàn chỉnh", "Copy + locale + media cuối theo từng bài/kênh", "post_assembler"],
+      ["W2.6", "Kiểm tra tự động tất định", "Kết quả lint và lỗi cần sửa", "deterministic_gate"],
+      ["W2.7", "QA độc lập", "Verdict, điểm và bằng chứng theo phiên bản", "independent_qa"],
+      ["W2.8", "Chủ doanh nghiệp quyết định", "Duyệt nội bộ, sửa hoặc chặn", "human_gate"],
     ]),
   },
   {
@@ -82,6 +85,6 @@ export const workflowDefinitions = Object.freeze([
   },
 ]);
 
-export const defaultW2Subagents = Object.freeze(["brief_expander", "locale_editor", "visual_accessibility_brief_checker"]);
+export const defaultW2Subagents = Object.freeze(["brief_expander", "locale_editor", "media_asset_producer", "visual_accessibility_brief_checker", "post_assembler"]);
 export const workflowCellForAgent = (agentId) => workflowCells.find((cell) => cell.leadAgent === agentId || cell.subagents.includes(agentId)) ?? null;
 export const workerLabel = (workerId) => agentRoster.find(({ id }) => id === workerId)?.label ?? subagentRoster.find(({ id }) => id === workerId)?.label ?? ({ deterministic_gate: "Cổng kiểm tra tự động", human_gate: "Người quản lý" })[workerId] ?? workerId;

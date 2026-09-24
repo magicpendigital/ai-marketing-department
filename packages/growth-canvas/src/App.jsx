@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  ArrowDown,
+  ArrowUp,
   BookOpen,
   CalendarBlank,
   CaretDown,
@@ -26,13 +28,25 @@ import {
 } from "@phosphor-icons/react";
 import {
   checklistForManager,
+  mutationErrorMessage,
   normalizeReviewBundle,
+  reviewErrorMessage,
   summarizeArtifactPreview,
   teamForManager,
 } from "./review-gate.js";
+import { codingAgentSchedulePrompt, mediaSkillsAuditPrompt } from "./automation-guidance.js";
 
 const canvasCapabilitySessionKey = "growth-canvas-access-capability";
-const w2AssignmentStorageKey = "growth-canvas-w2-subagents-v1";
+const w2AssignmentStorageKey = "growth-canvas-w2-subagents-v2";
+const w2ProductionOrderStorageKey = "growth-canvas-w2-production-order-v1";
+
+function readW2ProductionOrder() {
+  if (typeof window === "undefined") return ["copy", "media"];
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(w2ProductionOrderStorageKey) ?? "null");
+    return Array.isArray(stored) && stored.length === 2 && new Set(stored).size === 2 && stored.every((item) => ["copy", "media"].includes(item)) ? stored : ["copy", "media"];
+  } catch { return ["copy", "media"]; }
+}
 
 function readW2Assignment() {
   if (typeof window === "undefined") return [...defaultW2Subagents];
@@ -70,6 +84,7 @@ function canvasFetch(path, options = {}) {
 import {
   contentReviewState,
   filterContentJobs,
+  listContentUnits,
   parseContentArtifacts,
   preferredContentFilter,
   qualityDimensionsForRecord,
@@ -262,6 +277,8 @@ const vietnameseStatusLabels = Object.freeze({
   review_pending: "Chờ kiểm định",
   awaiting_owner_decision: "Chờ chủ doanh nghiệp duyệt",
   accepted_internal: "Đã duyệt nội bộ",
+  evidence_missing: "Thiếu nhật ký",
+  "evidence not recorded": "Thiếu nhật ký",
   complete: "Hoàn thành",
   completed: "Hoàn thành",
   completed_for_review: "Hoàn tất để duyệt",
@@ -317,7 +334,9 @@ const vietnameseRoleLabels = Object.freeze({
   content_orchestrator: "Điều phối viên sản xuất nội dung",
   brief_expander: "Chuyên gia phát triển brief",
   locale_editor: "Biên tập viên bản địa hóa",
+  media_asset_producer: "Nhà sản xuất media cuối",
   visual_accessibility_brief_checker: "Người kiểm định hình ảnh và khả năng tiếp cận",
+  post_assembler: "Người ghép preview theo kênh",
   quality_assurance: "Người kiểm định chất lượng",
   quality_reviewer: "Người kiểm định chất lượng",
   content_authoring: "Nhóm biên soạn nội dung",
@@ -414,31 +433,18 @@ function localizeTeamMember(member) {
   const state = member.state ?? member.status ?? member.time;
   const stateLabel = localizeStatusText(state);
   const backendEnglishDetail = /Leads internal|Supports the bounded|Reviews the draft|Mapped capability|is available for the next internal work order|current state/i.test(member.detail ?? "");
-  const detail = member.detail?.includes("independently")
-    ? "Thực hiện kiểm định độc lập trước bước duyệt của chủ doanh nghiệp."
-    : backendEnglishDetail
-      ? `${role || "Vai trò AI"} · ${stateLabel.toLowerCase()} trong phiếu công việc nội bộ hiện tại.`
-      : member.detail;
+  const detail = state === "evidence_missing"
+    ? "Chưa có nhật ký kết quả đã xác minh cho vai trò này trong lần chạy hiện tại."
+    : member.detail?.includes("validated lead receipt")
+      ? "Đã có biên nhận bàn giao của Lead Agent gắn với tệp kết quả."
+      : member.detail?.includes("Verified work-log entries")
+        ? "Nhật ký đã xác minh gắn đầu ra của vai trò này với bộ tệp hiện tại."
+        : member.detail?.includes("independently")
+          ? "Thực hiện kiểm định độc lập trước bước duyệt của chủ doanh nghiệp."
+          : backendEnglishDetail
+            ? `${role || "Vai trò AI"} · ${stateLabel.toLowerCase()} trong phiếu công việc nội bộ hiện tại.`
+            : member.detail;
   return { ...member, role, time: stateLabel, detail };
-}
-
-function reviewErrorMessage(error) {
-  const code = String(error?.code ?? "");
-  if (code === "decision_not_ready") return "Task chưa đến bước chủ doanh nghiệp duyệt.";
-  if (code.includes("receipt")) return "Chưa có biên nhận lần chạy hợp lệ để đối chiếu kết quả.";
-  if (code.includes("claim")) return "Thông tin nhận task của Coding Agent chưa hợp lệ hoặc chưa đầy đủ.";
-  if (code.includes("reviewer")) return "Chưa xác minh được tính độc lập của người kiểm định.";
-  if (code.includes("qa")) return "Kết quả kiểm định độc lập chưa đạt điều kiện để chủ doanh nghiệp duyệt.";
-  if (code.includes("integrity") || code.includes("artifact")) return "Tệp kết quả hoặc hash hiện tại chưa khớp với bản đã được kiểm định.";
-  if (error?.status === 404) return "Backend chưa cung cấp gói duyệt cho task này.";
-  return "Không thể tải gói duyệt an toàn. Quyết định đã được khóa.";
-}
-
-function mutationErrorMessage(error) {
-  if (error?.status === 409) return `${reviewErrorMessage(error)} Hãy làm mới Canvas sau khi Coding Agent hoàn tất bước còn thiếu.`;
-  if (error?.status === 400) return "Dữ liệu gửi lên chưa hợp lệ. Hãy kiểm tra lại nội dung và thử lại.";
-  if (error?.status === 403) return "Thao tác này không nằm trong quyền được cấp cho Canvas cục bộ.";
-  return "Không thể hoàn tất thao tác. Canvas đã làm mới trạng thái để tránh dùng dữ liệu cũ.";
 }
 
 function localizeActivityItem(item) {
@@ -702,13 +708,14 @@ function TaskReview({ task, busy, onDecision, review, onCopyHandoff, onOpenConte
   );
 }
 
-function TeamPanel({ team, activity }) {
+function TeamPanel({ team, activity, onOpenWorkflow }) {
   const localizedTeam = team.map(localizeTeamMember);
   const localizedActivity = activity.map(localizeActivityItem);
   return (
     <section className="side-panel team-panel">
-      <div className="section-heading section-heading--tight"><div><h2>Đội ngũ được phân công</h2><p>{localizedTeam.length} vai trò AI trong phiếu công việc hiện tại.</p></div></div>
+      <div className="section-heading section-heading--tight"><div><h2>Đội ngũ được phân công</h2><p>{localizedTeam.length} vai trò trong phiếu công việc hiện tại.</p></div></div>
       <ul className="team-list">{localizedTeam.map((member) => { const tone = statusTone(member.state ?? member.status ?? member.time); const StateIcon = tone === "passed" ? CheckCircle : tone === "blocked" ? WarningCircle : Clock; return <li key={member.id ?? member.role} className={`team-list__item team-list__item--${tone}`}><StateIcon className="team-list__state" size={22} weight="fill" /><span className="team-list__avatar">{member.initials}</span><div><strong>{member.role}</strong><p>{member.detail}</p></div><time>{member.time}</time></li>; })}</ul>
+      <button className="team-panel__workflow-link" type="button" onClick={onOpenWorkflow}>Xem toàn bộ {agentRoster.length} Agents và {subagentRoster.length} Sub-Agents <ArrowRight size={15} /></button>
       <div className="activity-block"><div className="section-title-row"><h3>Hoạt động gần đây</h3><button className="text-button" type="button">Xem tất cả <ArrowRight /></button></div><ol className="activity-list">{localizedActivity.map((item, index) => <li key={`${item.title}-${index}`}><time>{item.time}</time><div><strong>{item.title}</strong><p>{item.detail}</p></div></li>)}</ol></div>
     </section>
   );
@@ -765,8 +772,19 @@ function ReadableMetadata({ entries, empty }) {
 
 function FullContentPanel({ record }) {
   const artifacts = parseContentArtifacts(record);
+  const items = listContentUnits(record);
+  const itemsKey = items.map((item) => item.id).join("|");
+  const [selectedItemId, setSelectedItemId] = useState("");
+  const [locale, setLocale] = useState("");
+  useEffect(() => { if (!items.some((item) => item.id === selectedItemId)) setSelectedItemId(items[0]?.id ?? ""); }, [itemsKey, selectedItemId]);
+  const selectedItem = items.find((item) => item.id === selectedItemId) ?? items[0] ?? null;
+  const selectedVariant = selectedItem?.variants.find((variant) => variant.locale === locale) ?? selectedItem?.variants[0] ?? null;
+  useEffect(() => { if (!selectedItem?.variants.some((variant) => variant.locale === locale)) setLocale(selectedItem?.variants[0]?.locale ?? ""); }, [selectedItemId, selectedItem?.variants.map((variant) => variant.locale).join("|"), locale]);
   if (!artifacts.length) return <div className="content-record__empty"><FileText size={34} /><h3>Chưa có tệp nội dung để hiển thị</h3><p>Task này chưa bàn giao tệp kết quả đã được kiểm định.</p></div>;
-  return <div className="full-content-list">{artifacts.map((artifact) => <article className="full-content-artifact" key={artifact.id}><div className="full-content-artifact__header"><div><span>Tệp kết quả đã xác minh</span><h3>{artifact.reference}</h3></div><StatusLabel tone={artifact.previewStatus === "available" ? "success" : "current"}>{localizeStatusText(artifact.previewStatus)}</StatusLabel></div>{artifact.copyGroups.length > 0 ? <div className="copy-groups">{artifact.copyGroups.map((group, groupIndex) => <section className="copy-group" key={group.id}><div className="copy-group__title"><span>{String(groupIndex + 1).padStart(2, "0")}</span><h4>{group.label}</h4></div>{group.variants.map((variant) => <div className="locale-copy" key={`${group.id}-${variant.locale}`}><strong>{variant.locale}</strong><dl>{variant.fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></div>)}</section>)}</div> : artifact.rawContent ? <pre className="full-text-preview">{artifact.rawContent}</pre> : <p className="content-record__empty-note">Backend chỉ cung cấp metadata cho định dạng tệp này.</p>}<details className="raw-artifact-details"><summary>Dữ liệu gốc và thông tin toàn vẹn</summary><dl><div><dt>Loại dữ liệu</dt><dd>{artifact.mediaType}</dd></div><div><dt>Kích thước</dt><dd>{artifact.bytes == null ? "Chưa có" : `${artifact.bytes} byte`}</dd></div><div><dt>Hash</dt><dd><code>{artifact.hash || "Chưa có"}</code></dd></div></dl>{artifact.parsed && <pre>{JSON.stringify(artifact.parsed, null, 2)}</pre>}</details></article>)}</div>;
+  if (!selectedItem) return <div className="content-record__empty"><FileText size={34} /><h3>Chưa có bài nội dung để liệt kê</h3><p>Các tệp thô vẫn có thể xem trong phần bằng chứng kỹ thuật.</p>{artifacts.map((artifact) => <details className="raw-artifact-details" key={artifact.id}><summary>{artifact.reference}</summary>{artifact.rawContent && <pre>{artifact.rawContent}</pre>}</details>)}</div>;
+  const channelLabel = channelPreviewProfiles.find(({ id }) => id === selectedItem.channelId)?.label ?? "Chưa gắn kênh";
+  const sourceArtifact = artifacts.find((artifact) => artifact.id === selectedItem.artifactId);
+  return <div className="content-unit-browser"><header className="content-unit-browser__intro"><div><span className="review-bundle__eyebrow">Campaign là nhóm công việc</span><h3>{items.length} bài theo kênh</h3><p>Chọn một bài bên trái. Locale là các biến thể của cùng bài; mỗi locale xem riêng để tránh lặp dài.</p></div><StatusLabel tone="current">{items.length} bài trong lô</StatusLabel></header><div className="content-unit-browser__grid"><nav className="content-unit-browser__list" aria-label="Chọn nội dung trong campaign">{items.map((item, index) => { const label = channelPreviewProfiles.find(({ id }) => id === item.channelId)?.label ?? "Chưa gắn kênh"; return <button key={item.id} type="button" className={item.id === selectedItem.id ? "is-selected" : ""} onClick={() => setSelectedItemId(item.id)}><span>{String(index + 1).padStart(2, "0")} · {label}</span><strong>{item.title}</strong><small>{item.variants.length} locale</small></button>; })}</nav><article className="content-unit-browser__detail"><header><div><span className="review-bundle__eyebrow">{channelLabel}</span><h3>{selectedItem.title}</h3></div>{selectedItem.variants.length > 1 && <label><span>Ngôn ngữ</span><select aria-label="Ngôn ngữ nội dung đầy đủ" value={selectedVariant?.locale ?? ""} onChange={(event) => setLocale(event.target.value)}>{selectedItem.variants.map((variant) => <option key={variant.locale} value={variant.locale}>{variant.locale}</option>)}</select></label>}</header><div className="locale-copy"><strong>{selectedVariant?.locale}</strong><dl>{selectedVariant?.fields.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.value}</dd></div>)}</dl></div>{selectedItem.mediaArtifacts.map((asset) => <VerifiedMediaPreview key={asset.id} jobId={record.jobId} artifact={asset} altText={selectedVariant?.fields.find((field) => field.key === "altText")?.value} />)}<details className="raw-artifact-details"><summary>Dữ liệu gốc và thông tin toàn vẹn</summary><dl><div><dt>Loại dữ liệu</dt><dd>{sourceArtifact?.mediaType ?? "Chưa có"}</dd></div><div><dt>Kích thước</dt><dd>{sourceArtifact?.bytes == null ? "Chưa có" : `${sourceArtifact.bytes} byte`}</dd></div><div><dt>Hash</dt><dd><code>{sourceArtifact?.hash || "Chưa có"}</code></dd></div></dl>{sourceArtifact?.parsed && <pre>{JSON.stringify(sourceArtifact.parsed, null, 2)}</pre>}</details></article></div></div>;
 }
 
 function VerifiedMediaPreview({ jobId, artifact, altText }) {
@@ -820,6 +838,7 @@ function VerifiedMediaPreview({ jobId, artifact, altText }) {
 
 function ChannelPreviewPanel({ record, brandName }) {
   const artifacts = parseContentArtifacts(record);
+  const contentUnits = listContentUnits(record);
   const targetChannels = normalizeTargetChannels(record.targetChannels);
   const [requestedChannelId, setRequestedChannelId] = useState(targetChannels[0] ?? "");
   const channelId = targetChannels.includes(requestedChannelId) ? requestedChannelId : targetChannels[0] ?? "";
@@ -869,10 +888,10 @@ function ChannelPreviewPanel({ record, brandName }) {
   if (!targetChannels.length) return <section className="channel-preview-panel" aria-label="Preview nội dung theo kênh"><div className="channel-preview-empty channel-preview-empty--unassigned"><WarningCircle size={24} /><strong>Task này chưa được chỉ định kênh lúc tạo.</strong><p>Để tránh duyệt nhầm định dạng, Canvas không tự chọn Facebook, Instagram, LinkedIn hoặc Blog. Hãy tạo task mới và chọn kênh ngay trong brief.</p></div></section>;
 
   return <section className="channel-preview-panel" aria-label="Preview nội dung theo kênh">
-    <div className="channel-preview-panel__intro"><div><span className="review-bundle__eyebrow">Bản mô phỏng để duyệt</span><h3>Bài đăng hoàn chỉnh · {targetChannels.length > 1 ? "nhiều kênh được chỉ định" : profile.label}</h3><p>Chỉ các kênh được khóa trong manifest khi tạo task mới có thể xuất hiện ở đây. Mỗi kênh cần một gói copy và media riêng hoặc được gắn channelId rõ ràng.</p></div><span className="channel-preview-badge">Không xuất bản</span></div>
+    <div className="channel-preview-panel__intro"><div><span className="review-bundle__eyebrow">Bản mô phỏng để duyệt</span><h3>Bài đăng hoàn chỉnh · {targetChannels.length > 1 ? "nhiều kênh được chỉ định" : profile.label}</h3><p>Campaign đang nhóm {contentUnits.length || "các"} bài nội dung. Chọn từng bài, kênh và locale để xem một preview hoàn chỉnh; không dồn nhiều ngôn ngữ vào cùng một màn hình.</p>{contentUnits.length > 1 && <p className="content-review-scope-note">Trong alpha, quyết định hiện ghi nhận ở cấp task/campaign và áp dụng toàn bộ gói. Duyệt riêng từng content item (kênh + locale + phiên bản media) cần API approval cấp item, hiện chưa có.</p>}</div><span className="channel-preview-badge">Không xuất bản</span></div>
     <div className="channel-preview-toolbar">
       {targetChannels.length > 1 ? <label><span>Kênh đã chỉ định</span><select aria-label="Kênh đã chỉ định" value={channelId} onChange={(event) => setRequestedChannelId(event.target.value)}>{targetChannels.map((id) => { const item = channelPreviewProfiles.find((profileItem) => profileItem.id === id); return <option key={id} value={id}>{item.label} · {item.surface}</option>; })}</select></label> : <div className="channel-preview-fixed-channel"><span>Kênh đã chỉ định</span><strong>{profile.label} · {profile.surface}</strong></div>}
-      <label><span>Biến thể nội dung</span><select aria-label="Biến thể nội dung" value={selectedChoice?.id ?? ""} onChange={(event) => setCopyChoiceId(event.target.value)} disabled={!copyChoices.length}>{copyChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>
+      <label><span>Bài trong campaign</span><select aria-label="Bài trong campaign" value={selectedChoice?.id ?? ""} onChange={(event) => setCopyChoiceId(event.target.value)} disabled={!copyChoices.length}>{copyChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>
       <label><span>Ngôn ngữ</span><select aria-label="Ngôn ngữ preview" value={copy.locale} onChange={(event) => setLocale(event.target.value)} disabled={!localeOptions.length}>{localeOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
       <label><span>Media đính kèm</span><select aria-label="Media đính kèm" value={mediaArtifact?.id ?? ""} onChange={(event) => setMediaId(event.target.value)}><option value="">Chưa chọn media</option>{mediaArtifacts.map((item) => <option key={item.id} value={item.id}>{item.mediaKind === "video" ? "Video" : "Ảnh"} · {item.reference.split("/").at(-1)}</option>)}</select></label>
     </div>
@@ -894,15 +913,16 @@ function ChannelPreviewPanel({ record, brandName }) {
         <div className="channel-preview-post__engagement" aria-hidden="true">Thích　·　Bình luận　·　Chia sẻ <span>Phần giao diện tương tác chỉ để mô phỏng</span></div>
       </article>}
     </div>
-    <p className="channel-preview-footnote">Preview dùng đúng nội dung và tệp trong hồ sơ đang duyệt. Hash chỉ xác nhận tệp khớp hồ sơ; hãy đối chiếu nguồn, quyền sử dụng và provenance trong tab Media & nguồn. Tỷ lệ ảnh chỉ mô phỏng crop, không sửa tệp gốc hay quyết định nội bộ.</p>
+    <p className="channel-preview-footnote">Preview dùng đúng nội dung và tệp trong hồ sơ đang duyệt. Hash chỉ xác nhận tệp khớp hồ sơ; hãy đối chiếu nguồn, quyền sử dụng và provenance trong tab Media cuối & nguồn. Tỷ lệ ảnh chỉ mô phỏng crop, không sửa tệp gốc hay quyết định nội bộ.</p>
   </section>;
 }
 
 function MediaSourcePanel({ record }) {
   const artifacts = parseContentArtifacts(record);
+  const finalMedia = artifacts.filter((artifact) => artifact.mediaKind && artifact.previewStatus === "media_available");
   const mediaEntries = artifacts.flatMap((artifact) => artifact.mediaMetadata.map((entry) => ({ ...entry, id: `${artifact.id}-${entry.id}` })));
   const sourceEntries = artifacts.flatMap((artifact) => artifact.sourceMetadata.map((entry) => ({ ...entry, id: `${artifact.id}-${entry.id}` })));
-  return <div className="media-source-grid"><section><div className="content-tab-heading"><ImageSquare size={22} /><div><h3>Media và hướng dẫn sản xuất</h3><p>Thông tin visual, ảnh, video, accessibility và tài sản nguồn được lưu cùng gói nội dung khi có.</p></div></div><ReadableMetadata entries={mediaEntries} empty="Gói hiện tại chưa khai báo metadata media có cấu trúc." /></section><section><div className="content-tab-heading"><ShieldCheck size={22} /><div><h3>Nguồn, quyền sử dụng và provenance</h3><p>Đối chiếu nguồn, bằng chứng và quyền sử dụng trước mọi bước sản xuất hoặc triển khai sau này.</p></div></div><ReadableMetadata entries={sourceEntries} empty="Gói hiện tại chưa khai báo nguồn hoặc quyền sử dụng có cấu trúc." /></section></div>;
+  return <div className="media-source-workspace"><section className="final-media-deliverables"><div className="content-tab-heading"><ImageSquare size={22} /><div><h3>Tệp media cuối được bàn giao</h3><p>Chỉ tệp ảnh/video thật đã được hash-verify mới xuất hiện ở đây. Prompt và visual brief không phải media.</p></div><StatusLabel tone={finalMedia.length ? "success" : "blocked"}>{finalMedia.length ? `${finalMedia.length} tệp` : "Thiếu tệp cuối"}</StatusLabel></div>{finalMedia.length ? <div className="final-media-deliverables__grid">{finalMedia.map((asset) => <VerifiedMediaPreview key={asset.id} jobId={record.jobId} artifact={asset} altText="Tệp media trong gói đã kiểm định" />)}</div> : <div className="channel-preview-media-state channel-preview-media-state--empty"><ImageSquare size={20} /><strong>Chưa có ảnh/video cuối.</strong><p>Nếu media được chọn là bắt buộc, gói phải dừng trước đánh giá cho tới khi Coding Agent bàn giao file thật có chữ ký định dạng hợp lệ.</p></div>}</section><div className="media-source-grid"><section><div className="content-tab-heading"><ShieldCheck size={22} /><div><h3>Nguồn, quyền sử dụng và provenance</h3><p>Đối chiếu nguồn, quyền, giấy phép và bằng chứng trước khi duyệt.</p></div></div><ReadableMetadata entries={sourceEntries} empty="Gói hiện tại chưa khai báo nguồn hoặc quyền sử dụng có cấu trúc." /></section><section><details className="media-technical-details"><summary>Brief hình ảnh, accessibility và metadata kỹ thuật</summary><p>Đây là hướng dẫn và hồ sơ hỗ trợ sản xuất; không thay thế tệp media cuối.</p><ReadableMetadata entries={mediaEntries} empty="Gói hiện tại chưa khai báo metadata media có cấu trúc." /></details></section></div></div>;
 }
 
 function QualityEvidencePanel({ record }) {
@@ -937,7 +957,7 @@ function ContentRecordDetail({ selectedJob, recordState, onDecision, brandName }
   const record = recordState.data;
   const reviewState = contentReviewState(selectedJob);
   const canDecide = reviewState === "pending" && record.review?.readyForOwnerDecision === true;
-  const tabs = [{ id: "preview", label: "Bài đăng preview" }, { id: "content", label: "Nội dung đầy đủ" }, { id: "process", label: "Quy trình & kết quả" }, { id: "media", label: "Media & nguồn" }, { id: "quality", label: "Chất lượng" }, { id: "history", label: "Phiên bản & quyết định" }];
+  const tabs = [{ id: "preview", label: "Bài đăng preview" }, { id: "content", label: "Nội dung đầy đủ" }, { id: "process", label: "Quy trình & kết quả" }, { id: "media", label: "Media cuối & nguồn" }, { id: "quality", label: "Chất lượng" }, { id: "history", label: "Phiên bản & quyết định" }];
   return <section className="content-record"><header className="content-record__header"><div><div className="content-record__status"><ContentStateLabel state={reviewState} /><span>Cập nhật {formatManagerDate(record.updatedAt)}</span></div><h2>{record.title}</h2><p>{record.campaignSummary || record.managerTaskDescription}</p></div>{canDecide && <div className="content-record__actions"><button className="secondary-button" type="button" onClick={() => onDecision("revise", jobId)}>Yêu cầu sửa</button><button className="primary-button" type="button" onClick={() => onDecision("accept", jobId)}>Duyệt nội bộ</button></div>}</header><nav className="content-record__tabs" aria-label="Chi tiết hồ sơ nội dung">{tabs.map((item) => <button key={item.id} className={tab === item.id ? "is-active" : ""} type="button" onClick={() => setTab(item.id)}>{item.label}</button>)}</nav><div className="content-record__body">{tab === "content" && <FullContentPanel record={record} />}{tab === "preview" && <ChannelPreviewPanel record={record} brandName={brandName} />}{tab === "process" && <AgentWorkLogPanel record={record} />}{tab === "media" && <MediaSourcePanel record={record} />}{tab === "quality" && <QualityEvidencePanel record={record} />}{tab === "history" && <VersionHistoryPanel record={record} />}</div><p className="content-record__boundary"><ShieldCheck size={17} />Duyệt nội bộ không cấp quyền xuất bản, gửi, lên lịch, tạo campaign, tải audience hoặc chi tiêu.</p></section>;
 }
 
@@ -956,31 +976,60 @@ function PlaceholderModule({ name, onBack }) {
   return <section className="placeholder-module"><StatusLabel tone="current">Không gian thử nghiệm</StatusLabel><h1>{name}</h1><p>Khu vực này sẽ dùng chung dữ liệu chiến dịch, lịch sử quyết định và kết quả từ Coding Agent. Bản thử nghiệm hiện ưu tiên luồng Tổng quan và duyệt task của chủ doanh nghiệp.</p><button className="primary-button" type="button" onClick={onBack}>Quay lại Tổng quan</button></section>;
 }
 
-function WorkflowCanvas({ connectionMode, assignedSubagents, onToggleSubagent, onCreateTask }) {
+function WorkflowCanvas({ connectionMode, assignedSubagents, onToggleSubagent, onCreateTask, onCopyAutomationPrompt }) {
   const [workflowId, setWorkflowId] = useState("W2_content_factory");
   const workflow = workflowDefinitions.find((item) => item.id === workflowId) ?? workflowDefinitions[2];
   const [selectedStepId, setSelectedStepId] = useState(workflow.steps[0].id);
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [draggedBranch, setDraggedBranch] = useState("");
+  const [productionOrder, setProductionOrder] = useState(readW2ProductionOrder);
   useEffect(() => setSelectedStepId(workflow.steps[0].id), [workflowId]);
   const step = workflow.steps.find((item) => item.id === selectedStepId) ?? workflow.steps[0];
   const worker = agentRoster.find(({ id }) => id === step.worker) ?? subagentRoster.find(({ id }) => id === step.worker) ?? null;
   const selectedCell = workflowCells.find((item) => item.leadAgent === step.worker || item.subagents.includes(step.worker));
   const contentCell = workflowCells.find((item) => item.id === "content_cell");
+  useEffect(() => { try { window.localStorage.setItem(w2ProductionOrderStorageKey, JSON.stringify(productionOrder)); } catch { /* The manifest still records the selected order when the job is created. */ } }, [productionOrder]);
+  const productionSteps = productionOrder.map((branch) => workflow.steps.find((item) => item.id === (branch === "copy" ? "W2.3" : "W2.4"))).filter(Boolean);
+  const orderedSteps = workflow.id === "W2_content_factory"
+    ? [...workflow.steps.filter((item) => !["W2.3", "W2.4"].includes(item.id)).flatMap((item) => item.id === "W2.5" ? [...productionSteps, item] : [item])]
+    : workflow.steps;
+  const reorderProduction = (source, target) => {
+    if (!source || !target || source === target) return;
+    const current = [...productionOrder];
+    const sourceIndex = current.indexOf(source);
+    const targetIndex = current.indexOf(target);
+    [current[sourceIndex], current[targetIndex]] = [current[targetIndex], current[sourceIndex]];
+    setProductionOrder(current);
+  };
+  const moveProductionBranch = (branch, direction) => {
+    const current = [...productionOrder];
+    const index = current.indexOf(branch);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= current.length) return;
+    [current[index], current[targetIndex]] = [current[targetIndex], current[index]];
+    setProductionOrder(current);
+  };
+  const selectedRole = agentRoster.find(({ id }) => id === selectedRoleId) ?? subagentRoster.find(({ id }) => id === selectedRoleId) ?? null;
+  const selectedRoleCell = workflowCells.find((item) => item.leadAgent === selectedRoleId || item.subagents.includes(selectedRoleId));
 
   return <main className="workflow-canvas">
     <header className="workflow-canvas__header"><div><p className="breadcrumb">Điều hành AI&nbsp; / &nbsp;Mô hình quy trình</p><h1>Agents, Sub-Agents & quy trình làm việc</h1><p>Xem ai làm gì, kết quả bàn giao ở đâu và cổng nào cần quản lý quyết định. Sơ đồ mô phỏng cấu hình framework; trạng thái chạy thực tế lấy từ task.</p></div><button className="primary-button" type="button" onClick={onCreateTask}><Plus weight="bold" />Tạo task W2</button></header>
-    <div className={`workflow-canvas__runtime workflow-canvas__runtime--${connectionMode}`}><Info size={19} /><span>{connectionMode === "connected" ? "Canvas đang kết nối với workspace cục bộ. Tạo task sẽ ghi cấu hình kênh và đội ngũ đã chọn vào manifest bất biến." : "Đang xem bản mẫu. Có thể xem sơ đồ, nhưng cần mở private URL để tạo task thật trong workspace."}</span></div>
+    <div className={`workflow-canvas__runtime workflow-canvas__runtime--${connectionMode}`}><Info size={19} /><span>{connectionMode === "connected" ? "Canvas đang kết nối với workspace cục bộ. Task mới lưu kênh, chính sách media, đội ngũ và độ ưu tiên copy/media vào manifest bất biến." : "Đang xem bản mẫu. Có thể xem sơ đồ, nhưng cần mở private URL để tạo task thật trong workspace."}</span></div>
     <nav className="workflow-selector" aria-label="Chọn workflow">{workflowDefinitions.map((item) => <button key={item.id} type="button" className={item.id === workflowId ? "is-active" : ""} onClick={() => setWorkflowId(item.id)}><span>{item.label}</span><small>{item.id === "W2_content_factory" ? "Có thể tạo task trong alpha" : "Xem mô phỏng"}</small></button>)}</nav>
     <section className="workflow-canvas__process">
       <div className="workflow-canvas__process-header"><div><span className="context-label">{workflow.id}</span><h2>{workflow.label}</h2><p>{workflow.gate}</p></div><StatusLabel tone={workflow.id === "W2_content_factory" ? "success" : "current"}>{workflow.id === "W2_content_factory" ? "Đang hỗ trợ" : "Mô phỏng topology"}</StatusLabel></div>
       {workflow.id === "W2_content_factory" && <div className="workflow-assignment-editor"><div><h3>Đội sản xuất task mới</h3><p>Lead Agent được framework khóa theo năng lực. Chọn Sub-Agent hỗ trợ; lựa chọn sẽ được lưu vào phiếu W2 tiếp theo.</p><div className="workflow-assignment-editor__lead"><span>Lead Agent</span><strong>{workerLabel(contentCell.leadAgent)}</strong><small>Không thể thay lead bằng vai trò không có năng lực sản xuất nội dung.</small></div></div><fieldset><legend>Sub-Agents tham gia</legend>{contentCell.subagents.map((id) => { const item = subagentRoster.find((agent) => agent.id === id); return <label key={id} className="workflow-assignment-option"><input type="checkbox" checked={assignedSubagents.includes(id)} onChange={() => onToggleSubagent(id)} /><span><strong>{item.label}</strong><small>{item.purpose}</small></span></label>; })}<small className="workflow-assignment-editor__hint">Cấu hình được lưu trên trình duyệt này; khi tạo task, backend xác minh lại roster được phép.</small></fieldset></div>}
-      <ol className="workflow-canvas__track" aria-label={`Các bước trong ${workflow.label}`}>{workflow.steps.map((item, index) => <li key={item.id} className={item.id === step.id ? "is-selected" : ""}><button type="button" onClick={() => setSelectedStepId(item.id)} aria-current={item.id === step.id ? "step" : undefined}><span>{String(index + 1).padStart(2, "0")}</span><strong>{item.label}</strong><small>{workerLabel(item.worker)}</small></button></li>)}</ol>
+      {workflow.id === "W2_content_factory" && <p className="workflow-canvas__drag-note">Kéo thả hoặc dùng mũi tên để đổi độ ưu tiên hai nhánh độc lập: copy và media. Cả hai phải xong trước khi ghép preview; lint, QA và duyệt cuối luôn khóa thứ tự.</p>}
+      <ol className="workflow-canvas__track" aria-label={`Các bước trong ${workflow.label}`}>{orderedSteps.map((item, index) => { const branch = item.id === "W2.3" ? "copy" : item.id === "W2.4" ? "media" : ""; const stepCell = workflowCells.find((cell) => cell.leadAgent === item.worker || cell.subagents.includes(item.worker)); return <li key={item.id} className={`${item.id === step.id ? "is-selected" : ""} ${branch ? "is-draggable" : "is-locked"}`} draggable={Boolean(branch)} onDragStart={(event) => { if (branch) { setDraggedBranch(branch); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", branch); } }} onDragOver={(event) => { if (branch) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const source = event.dataTransfer.getData("text/plain") || draggedBranch; reorderProduction(source, branch); setDraggedBranch(""); }} onDragEnd={() => setDraggedBranch("")}><div className="workflow-canvas__node"><button className="workflow-canvas__node-select" type="button" onClick={() => setSelectedStepId(item.id)} aria-current={item.id === step.id ? "step" : undefined}><span>{String(index + 1).padStart(2, "0")} · {item.id}</span><strong>{item.label}</strong><small>{workerLabel(item.worker)}</small></button><button className="workflow-canvas__role-link" type="button" onClick={() => setSelectedRoleId(item.worker)}>Vai trò chi tiết</button>{branch && <div className="workflow-canvas__move-controls"><button type="button" aria-label="Đưa bước lên trước" onClick={() => moveProductionBranch(branch, -1)}><ArrowUp size={14} /></button><button type="button" aria-label="Đưa bước xuống sau" onClick={() => moveProductionBranch(branch, 1)}><ArrowDown size={14} /></button><span>Kéo để sắp xếp</span></div>}<div className="workflow-canvas__node-team"><small>Phối hợp trong nhóm</small>{(stepCell?.subagents ?? []).map((id) => { const subagent = subagentRoster.find((agent) => agent.id === id); return <button key={id} type="button" onClick={() => setSelectedRoleId(id)}>{subagent?.label ?? id}</button>; })}</div></div></li>; })}</ol>
       <article className="workflow-step-detail"><div className="workflow-step-detail__number">{step.id}</div><div><span className="review-bundle__eyebrow">Ai chịu trách nhiệm</span><h3>{worker?.label ?? workerLabel(step.worker)}</h3><p>{worker?.purpose ?? (step.worker === "deterministic_gate" ? "Framework tự động kiểm tra hợp đồng, hash và các hard-fail; không dùng điểm này làm hiệu quả marketing." : "Người chịu trách nhiệm đưa ra quyết định cuối cùng tại cổng này." )}</p><dl><div><dt>Kết quả của bước</dt><dd>{step.output}</dd></div><div><dt>Liên kết đội</dt><dd>{selectedCell ? `${selectedCell.label}: ${workerLabel(selectedCell.leadAgent)} phối hợp cùng ${selectedCell.subagents.map(workerLabel).join(", ")}.` : "Cổng framework hoặc người quản lý độc lập với nhóm sản xuất."}</dd></div><div><dt>Cổng duyệt</dt><dd>{workflow.gate}</dd></div></dl></div></article>
+      {selectedRole && <aside className="workflow-role-detail"><div><span className="review-bundle__eyebrow">Hồ sơ vai trò · {agentRoster.some(({ id }) => id === selectedRoleId) ? "Agent" : "Sub-Agent"}</span><h3>{selectedRole.label}</h3><p>{selectedRole.purpose}</p></div><dl><div><dt>Đầu vào</dt><dd>{selectedRole.inputs ?? "Nhận đúng dữ liệu tối thiểu do bước trước bàn giao; không truy cập dữ liệu ngoài phạm vi task."}</dd></div><div><dt>Kết quả bàn giao</dt><dd>{selectedRole.outputs ?? workflow.steps.find((item) => item.worker === selectedRoleId)?.output ?? "Một kết quả kiểm tra/đề xuất hẹp gắn với artifact của workflow."}</dd></div><div><dt>Giới hạn quyền</dt><dd>{selectedRole.boundary ?? "Không tự phê duyệt, xuất bản, gửi, lên lịch, truy cập credential hoặc chi tiêu."}</dd></div><div><dt>Nhóm phối hợp</dt><dd>{selectedRoleCell ? `${selectedRoleCell.label} · Lead ${workerLabel(selectedRoleCell.leadAgent)} · ${selectedRoleCell.subagents.length} Sub-Agent.` : "Làm việc theo vai trò được khai báo trong workflow này."}</dd></div></dl></aside>}
     </section>
     <section className="workflow-roster"><div className="workflow-roster__heading"><div><span className="review-bundle__eyebrow">Đội ngũ framework</span><h2>Toàn bộ Agents và Sub-Agents</h2><p>Agent là vai trò chịu trách nhiệm. Sub-Agent xử lý một nhiệm vụ hẹp và trả về kết quả kiểm tra/đề xuất cho Agent chính.</p></div><span className="context-label">{agentRoster.length} Agents · {subagentRoster.length} Sub-Agents</span></div>
-      <div className="workflow-agent-grid">{agentRoster.map((agent) => <article className="workflow-agent-card" key={agent.id}><div><span>{agent.capability}</span><strong>{agent.label}</strong></div><p>{agent.purpose}</p><code>{agent.id}</code></article>)}</div>
+      <div className="workflow-agent-grid">{agentRoster.map((agent) => <article className="workflow-agent-card" key={agent.id} role="button" tabIndex={0} onClick={() => setSelectedRoleId(agent.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedRoleId(agent.id); }}><div><span>{agent.capability}</span><strong>{agent.label}</strong></div><p>{agent.purpose}</p><code>{agent.id}</code></article>)}</div>
       <div className="workflow-cell-grid">{workflowCells.map((cell) => { const lead = agentRoster.find((agent) => agent.id === cell.leadAgent); return <article className="workflow-cell-card" key={cell.id}><header><span>Nhóm quy trình</span><h3>{cell.label}</h3></header><div className="workflow-cell-card__lead"><strong>Lead · {lead?.label ?? cell.leadAgent}</strong><small>{lead?.purpose}</small></div><ul>{cell.subagents.map((id) => { const agent = subagentRoster.find((item) => item.id === id); const editable = cell.id === "content_cell" && workflow.id === "W2_content_factory"; return <li key={id} className={editable && assignedSubagents.includes(id) ? "is-assigned" : ""}><span className="workflow-cell-card__dot" /><div><strong>{agent?.label ?? id}</strong><small>{agent?.purpose}</small></div><code>{editable ? assignedSubagents.includes(id) ? "Đã chọn" : "Tùy chọn" : "Theo topology"}</code></li>; })}</ul><small className="workflow-cell-card__footnote">{cell.id === "quality_cell" ? "Được ánh xạ vào tenant và phải độc lập với Agent tạo nội dung." : "Sub-Agent tạo kết quả hỗ trợ; không tự duyệt, xuất bản hoặc chi tiêu."}</small></article>; })}</div>
     </section>
-    <aside className="workflow-canvas__boundary"><ShieldCheck size={20} /><p><strong>Điểm quan trọng về vận hành:</strong> Coding Agent thực hiện công việc sau khi người dùng gửi handoff thủ công. Sơ đồ này không tự đánh thức Agent theo lịch. W3 phân phối, W4 xuất bản và W5 quảng cáo trả phí vẫn là các workflow chưa triển khai.</p></aside>
+    <section className="workflow-automation-guidance"><article><div><span className="review-bundle__eyebrow">Hướng dẫn cho Supervisor</span><h2>Lên lịch sản xuất qua Coding Agent</h2><p>Canvas hiện tạo task và handoff; nó chưa tự lên lịch hay đánh thức Agent. Prompt yêu cầu Coding Agent tự xác nhận Scheduled/Automation, trạng thái đăng nhập, phạm vi workspace và giới hạn gói.</p><p className="workflow-automation-guidance__note">Không phải Coding Agent nào cũng có lịch native dùng subscription. Nếu chưa xác minh được, Agent phải dừng ở hướng dẫn thủ công; không tự cài cron/GitHub Actions hoặc yêu cầu API key thay thế.</p><button className="secondary-button" type="button" onClick={() => onCopyAutomationPrompt("schedule")}>Sao chép prompt thiết lập lịch</button></div></article><article><div><span className="review-bundle__eyebrow">Sẵn sàng xử lý media</span><h2>Kiểm tra Skills & plugins</h2><p>Trước khi giao ảnh hoặc video, Coding Agent cần xác nhận công cụ thực sự có trong môi trường này. Nếu thiếu, prompt yêu cầu tìm nguồn cài chính thức, nêu quyền/chi phí rồi chờ chủ workspace xác nhận.</p><p className="workflow-automation-guidance__note">Ảnh thực cần file có quyền sử dụng. Có thể chỉnh crop, ánh sáng, bố cục hoặc typography theo brief nhưng không được thay đổi sự thật của ảnh bằng generative AI.</p><button className="secondary-button" type="button" onClick={() => onCopyAutomationPrompt("media")}>Sao chép prompt kiểm tra media</button></div></article></section>
+    <aside className="workflow-canvas__boundary"><ShieldCheck size={20} /><p><strong>Điểm quan trọng về vận hành:</strong> Coding Agent thực hiện công việc sau khi người dùng gửi handoff thủ công. W3 phân phối, W4 xuất bản và W5 quảng cáo trả phí vẫn là các workflow chưa triển khai.</p></aside>
   </main>;
 }
 
@@ -995,10 +1044,10 @@ function DecisionModal({ decision, busy, onClose, onSubmit }) {
 }
 
 function CreateTaskModal({ busy, onClose, onSubmit, subagentTemplateIds }) {
-  const [form, setForm] = useState({ jobId: `campaign-${new Date().toISOString().slice(0, 10)}`, title: "", campaignSummary: "", managerTaskDescription: "", workflowId: "W2_content_factory", targetChannels: [] });
+  const [form, setForm] = useState({ jobId: `campaign-${new Date().toISOString().slice(0, 10)}`, title: "", campaignSummary: "", managerTaskDescription: "", workflowId: "W2_content_factory", targetChannels: [], mediaDeliveryRequirement: "required", w2ProductionOrder: readW2ProductionOrder() });
   const update = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
   const toggleChannel = (channelId) => setForm((current) => ({ ...current, targetChannels: current.targetChannels.includes(channelId) ? current.targetChannels.filter((id) => id !== channelId) : [...current.targetChannels, channelId] }));
-  return <Modal title="Tạo task sản xuất nội dung" onClose={onClose}><p className="modal__intro">Chọn tất cả kênh cần sản xuất ngay tại đây. Sau khi tạo, kênh được khóa trong manifest; preview và QA chỉ hiện đúng các kênh này.</p><div className="form-grid"><label><span>Mã task</span><input value={form.jobId} onChange={update("jobId")} required /></label><label><span>Tên task</span><input value={form.title} onChange={update("title")} placeholder="Bài giới thiệu trải nghiệm mới" required /></label><fieldset className="form-grid__wide task-channel-picker"><legend>Kênh cần sản xuất <small>(chọn ít nhất một)</small></legend><div>{channelPreviewProfiles.map((channel) => <label key={channel.id}><input type="checkbox" checked={form.targetChannels.includes(channel.id)} onChange={() => toggleChannel(channel.id)} /><span><strong>{channel.label}</strong><small>{channel.surface}</small></span></label>)}</div><p>Một kênh: preview chỉ có một định dạng. Nhiều kênh: mỗi kênh cần gói nội dung riêng có channelId.</p></fieldset><label className="form-grid__wide"><span>Tóm tắt chiến dịch</span><textarea rows="3" value={form.campaignSummary} onChange={update("campaignSummary")} placeholder="Mục tiêu, đối tượng, insight, sản phẩm và kết quả mong đợi…" /></label><label className="form-grid__wide"><span>Điều chủ doanh nghiệp cần duyệt</span><textarea rows="4" value={form.managerTaskDescription} onChange={update("managerTaskDescription")} placeholder="Mô tả nội dung/kết quả cần xem và tiêu chí quyết định…" required /></label><div className="form-grid__wide task-agent-assignment"><strong>Đội sản xuất: Studio nội dung</strong><span>{subagentTemplateIds.map(workerLabel).join(" · ") || "Không có Sub-Agent hỗ trợ"}</span><small>Đổi đội ngũ tại menu Quy trình trước khi tạo task.</small></div></div><div className="modal__actions"><button className="secondary-button" type="button" onClick={onClose}>Hủy</button><button className="primary-button" type="button" disabled={busy || !form.jobId.trim() || !form.title.trim() || !form.managerTaskDescription.trim() || form.targetChannels.length === 0} onClick={() => onSubmit({ ...form, subagentTemplateIds })}>{busy ? "Đang tạo…" : "Tạo task"}</button></div></Modal>;
+  return <Modal title="Tạo task sản xuất nội dung" onClose={onClose}><p className="modal__intro">Chọn kênh, chính sách media và mục tiêu ngay tại đây. Kênh cùng yêu cầu media sẽ được khóa trong manifest của task.</p><div className="form-grid"><label><span>Mã task</span><input value={form.jobId} onChange={update("jobId")} required /></label><label><span>Tên task / campaign</span><input value={form.title} onChange={update("title")} placeholder="Bài giới thiệu trải nghiệm mới" required /></label><fieldset className="form-grid__wide task-channel-picker"><legend>Kênh cần sản xuất <small>(chọn ít nhất một)</small></legend><div>{channelPreviewProfiles.map((channel) => <label key={channel.id}><input type="checkbox" checked={form.targetChannels.includes(channel.id)} onChange={() => toggleChannel(channel.id)} /><span><strong>{channel.label}</strong><small>{channel.surface}</small></span></label>)}</div><p>Mỗi kênh tạo một gói preview riêng. Không tự thêm kênh ngoài danh sách đã chọn.</p></fieldset><fieldset className="form-grid__wide task-media-policy"><legend>Media cho từng kênh trong task</legend><label><input type="radio" name="mediaDeliveryRequirement" value="required" checked={form.mediaDeliveryRequirement === "required"} onChange={update("mediaDeliveryRequirement")} /><span><strong>Cần ảnh/video hoàn thiện (khuyến nghị)</strong><small>Task bị chặn trước QA nếu thiếu tệp media thật; prompt, storyboard và visual brief không được tính.</small></span></label><label><input type="radio" name="mediaDeliveryRequirement" value="not_required" checked={form.mediaDeliveryRequirement === "not_required"} onChange={update("mediaDeliveryRequirement")} /><span><strong>Text-only, không cần media</strong><small>Chọn rõ khi format/kênh không cần ảnh hoặc video.</small></span></label></fieldset><label className="form-grid__wide"><span>Tóm tắt campaign</span><textarea rows="3" value={form.campaignSummary} onChange={update("campaignSummary")} placeholder="Mục tiêu, đối tượng, insight, sản phẩm và kết quả mong đợi…" /></label><label className="form-grid__wide"><span>Yêu cầu và tiêu chí duyệt</span><textarea rows="4" value={form.managerTaskDescription} onChange={update("managerTaskDescription")} placeholder="Mô tả nội dung cần tạo, số lượng bài, locale, tiêu chí chất lượng và loại media mong muốn…" required /></label><div className="form-grid__wide task-agent-assignment"><strong>Đội sản xuất: Studio nội dung</strong><span>{subagentTemplateIds.map(workerLabel).join(" · ") || "Không có Sub-Agent hỗ trợ"}</span><small>Thứ tự ưu tiên: {form.w2ProductionOrder.map((branch) => branch === "copy" ? "Copy" : "Media").join(" → ")}. Kết quả cuối cùng phải ghép đủ bài trước lint và QA.</small></div></div><div className="modal__actions"><button className="secondary-button" type="button" onClick={onClose}>Hủy</button><button className="primary-button" type="button" disabled={busy || !form.jobId.trim() || !form.title.trim() || !form.managerTaskDescription.trim() || form.targetChannels.length === 0} onClick={() => onSubmit({ ...form, subagentTemplateIds })}>{busy ? "Đang tạo…" : "Tạo task"}</button></div></Modal>;
 }
 
 function Toast({ toast, onDismiss }) {
@@ -1224,7 +1273,7 @@ export function App() {
         createdJob = {
           jobId: form.jobId,
           state: { ...form, status: "ready_for_agent", createdAt, updatedAt: createdAt },
-          manifest: { assignedAgentRole: "content_studio", subagentTemplateIds: form.subagentTemplateIds, targetChannels: form.targetChannels },
+          manifest: { assignedAgentRole: "content_studio", subagentTemplateIds: form.subagentTemplateIds, targetChannels: form.targetChannels, mediaDeliveryRequirement: form.mediaDeliveryRequirement, w2ProductionOrder: form.w2ProductionOrder },
           handoff: { nextAction: `Mở Coding Agent, sao chép hướng dẫn đầy đủ từ phần task để bắt đầu phiếu ${form.jobId}.` },
         };
       }
@@ -1252,6 +1301,8 @@ export function App() {
       setToast({ tone: "error", title: "Không thể sao chép hướng dẫn", message: error.message });
     }
   };
+
+  const copyAutomationPrompt = async (kind) => copyHandoffPrompt(kind === "schedule" ? codingAgentSchedulePrompt : mediaSkillsAuditPrompt);
 
   const toggleAssignedSubagent = (subagentId) => {
     setAssignedSubagents((current) => {
@@ -1283,5 +1334,5 @@ export function App() {
   };
 
   if (loading) return <LoadingView />;
-  return <div className="canvas-shell"><Sidebar activeNav={activeNav} onNavigate={setActiveNav} runtime={runtime} /><div className="canvas-app"><AppHeader organization={data.organization} runtime={runtime} onCreate={() => setShowCreate(true)} onCopyPrivateLink={connectionMode === "connected" && canvasAccessCapability ? copyPrivateCanvasLink : null} />{activeNav === "Tổng quan" ? <main className="dashboard"><div className="dashboard__primary"><CampaignHeader campaign={data.campaign} quality={data.quality} /><Workflow stages={data.workflow} selectedStage={selectedStage} onSelect={setSelectedStage} onOpenWorkflow={() => setActiveNav("Quy trình")} /><TaskReview task={visibleTask} busy={busy} onDecision={(type) => openDecision(type, data.currentTask?.jobId ?? data.currentTask?.id)} review={review} onCopyHandoff={copyHandoffPrompt} onOpenContent={() => { setSelectedContentJobId(data.currentTask?.jobId ?? data.currentTask?.id ?? ""); setActiveNav("Nội dung"); }} allowHandoff={connectionMode === "connected"} ownerDecisionBoundary={data.ownerDecisionBoundary} /></div><aside className="dashboard__rail"><TeamPanel team={effectiveTeam} activity={data.activity} /><ChecklistPanel items={effectiveChecklist} /></aside></main> : activeNav === "Quy trình" ? <WorkflowCanvas connectionMode={connectionMode} assignedSubagents={assignedSubagents} onToggleSubagent={toggleAssignedSubagent} onCreateTask={() => setShowCreate(true)} /> : activeNav === "Nội dung" ? <ContentWorkspace jobs={data.jobs} filter={contentFilter} onFilter={setContentFilter} selectedJobId={selectedContentJobId} onSelectJob={setSelectedContentJobId} recordState={contentRecord} onDecision={openDecision} brandName={data.organization?.name} connectionMode={connectionMode} onCreateTask={() => setShowCreate(true)} /> : <main className="dashboard dashboard--placeholder"><PlaceholderModule name={activeNav} onBack={() => setActiveNav("Tổng quan")} /></main>}</div>{decision && <DecisionModal decision={decision} busy={busy} onClose={() => { setDecision(null); setDecisionJobId(""); }} onSubmit={submitDecision} />}{showCreate && <CreateTaskModal busy={busy} onClose={() => setShowCreate(false)} subagentTemplateIds={assignedSubagents} onSubmit={createTask} />}<Toast toast={toast} onDismiss={() => setToast(null)} /></div>;
+  return <div className="canvas-shell"><Sidebar activeNav={activeNav} onNavigate={setActiveNav} runtime={runtime} /><div className="canvas-app"><AppHeader organization={data.organization} runtime={runtime} onCreate={() => setShowCreate(true)} onCopyPrivateLink={connectionMode === "connected" && canvasAccessCapability ? copyPrivateCanvasLink : null} />{activeNav === "Tổng quan" ? <main className="dashboard"><div className="dashboard__primary"><CampaignHeader campaign={data.campaign} quality={data.quality} /><Workflow stages={data.workflow} selectedStage={selectedStage} onSelect={setSelectedStage} onOpenWorkflow={() => setActiveNav("Quy trình")} /><TaskReview task={visibleTask} busy={busy} onDecision={(type) => openDecision(type, data.currentTask?.jobId ?? data.currentTask?.id)} review={review} onCopyHandoff={copyHandoffPrompt} onOpenContent={() => { setSelectedContentJobId(data.currentTask?.jobId ?? data.currentTask?.id ?? ""); setActiveNav("Nội dung"); }} allowHandoff={connectionMode === "connected"} ownerDecisionBoundary={data.ownerDecisionBoundary} /></div><aside className="dashboard__rail"><TeamPanel team={effectiveTeam} activity={data.activity} onOpenWorkflow={() => setActiveNav("Quy trình")} /><ChecklistPanel items={effectiveChecklist} /></aside></main> : activeNav === "Quy trình" ? <WorkflowCanvas connectionMode={connectionMode} assignedSubagents={assignedSubagents} onToggleSubagent={toggleAssignedSubagent} onCreateTask={() => setShowCreate(true)} onCopyAutomationPrompt={copyAutomationPrompt} /> : activeNav === "Nội dung" ? <ContentWorkspace jobs={data.jobs} filter={contentFilter} onFilter={setContentFilter} selectedJobId={selectedContentJobId} onSelectJob={setSelectedContentJobId} recordState={contentRecord} onDecision={openDecision} brandName={data.organization?.name} connectionMode={connectionMode} onCreateTask={() => setShowCreate(true)} /> : <main className="dashboard dashboard--placeholder"><PlaceholderModule name={activeNav} onBack={() => setActiveNav("Tổng quan")} /></main>}</div>{decision && <DecisionModal decision={decision} busy={busy} onClose={() => { setDecision(null); setDecisionJobId(""); }} onSubmit={submitDecision} />}{showCreate && <CreateTaskModal busy={busy} onClose={() => setShowCreate(false)} subagentTemplateIds={assignedSubagents} onSubmit={createTask} />}<Toast toast={toast} onDismiss={() => setToast(null)} /></div>;
 }

@@ -16,7 +16,7 @@ Manual work-order handoff is the reliable default. Subscription-backed CLI autom
 | --- | --- | --- | --- |
 | W0 Readiness | Establish a tenant's ProductTruth, ownership, data boundary, risk log, and channel capability record. | Readiness record | Draft-only |
 | W1 Research to plan | Turn approved public sources and consented research summaries into hypotheses, briefs, and measurement plans. | Versioned brief | Draft-only |
-| W2 Content factory | Create, lint, and independently review content concepts and asset briefs in the tenant's required locales. | Internal asset package | Draft-only |
+| W2 Content factory | Create channel-specific copy, produce final media when required, assemble complete post previews, lint, and independently review the exact artifact hashes. | Internal content package; final media is a real file, never a prompt/brief substitute | Draft-only |
 | W6 Learning to product | Convert approved aggregate signals into learning notes and product-ticket drafts. | Aggregate learning note | Draft-only |
 
 The first release does **not** publish, schedule, send, contact people, create advertising campaigns, upload audiences, spend money, modify a product, or access an execution credential.
@@ -119,12 +119,14 @@ No agent may advance a gate on its own. [Governance](docs/GOVERNANCE.md) defines
 6. [Two-Business Pilot](docs/TWO_BUSINESS_PILOT.md)
 7. [Versioning and Upgrades](docs/VERSIONING_AND_UPGRADES.md)
 8. [Local Canvas](docs/LOCAL_CANVAS.md)
+9. [Coding Agent scheduling and media skills](docs/CODING_AGENT_AUTOMATION_HANDOFF.vi.md)
 9. [Product Control Plane Roadmap](docs/PRODUCT_CONTROL_PLANE_ROADMAP.md)
 10. [Media Provenance Workflow](docs/MEDIA_PROVENANCE_WORKFLOW.md)
-11. [Pro Supervisor Operating Model](docs/PRO_SUPERVISOR_OPERATING_MODEL.md)
-12. [Media and Supervisor Extension Status](docs/MEDIA_AND_SUPERVISOR_EXTENSIONS.md)
-13. [Contributing](CONTRIBUTING.md)
-14. [License Decision](LICENSE_DECISION.md)
+11. [Campaigns, content items, and review](docs/CONTENT_ITEMS_AND_REVIEW.vi.md)
+12. [Pro Supervisor Operating Model](docs/PRO_SUPERVISOR_OPERATING_MODEL.md)
+13. [Media and Supervisor Extension Status](docs/MEDIA_AND_SUPERVISOR_EXTENSIONS.md)
+14. [Contributing](CONTRIBUTING.md)
+15. [License Decision](LICENSE_DECISION.md)
 
 ## When this framework is ready for a new business
 

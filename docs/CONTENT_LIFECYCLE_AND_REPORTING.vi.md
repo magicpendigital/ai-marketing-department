@@ -30,7 +30,7 @@ Tách báo cáo thành ba lớp để không nhầm điểm chất lượng nộ
 
 Báo cáo theo cấp campaign → channel → post/content version → audience cohort đã được phép. So sánh trước/sau và biến thể chỉ khi có thiết kế thử nghiệm đủ điều kiện; không kết luận nhân quả từ lượt xem đơn thuần. Dùng UTM/deep link hoặc sự kiện do business sở hữu để nối lượt click đến đăng ký/kích hoạt. Chỉ đưa số liệu đủ ngưỡng, đã giảm định danh vào workflow học hỏi W6.
 
-Với Nilaza, không dùng lượt xem Tarot, journal, birth chart hoặc chủ đề trò chuyện riêng để tạo hồ sơ nhạy cảm hay nhắm quảng cáo cá nhân. Chỉ dùng cohort tổng hợp được cho phép; tách dữ liệu vận hành marketing khỏi hội thoại/journal và nội dung astrology cá nhân.
+Với tenant có nội dung nhạy cảm như Tarot, journal, birth chart hoặc hội thoại riêng, không dùng lượt xem hay chủ đề cá nhân để tạo hồ sơ nhạy cảm hoặc nhắm quảng cáo. Chỉ dùng cohort tổng hợp được cho phép; tách dữ liệu vận hành marketing khỏi nội dung riêng tư.
 
 ## Kiểm soát quyền và quyết định
 

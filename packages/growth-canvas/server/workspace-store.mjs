@@ -153,7 +153,9 @@ const friendlyRoleLabels = Object.freeze({
   content_studio: "Content studio",
   brief_expander: "Brief specialist",
   locale_editor: "Locale editor",
-  visual_accessibility_brief_checker: "Visual and accessibility reviewer"
+  media_asset_producer: "Final media producer",
+  visual_accessibility_brief_checker: "Visual and accessibility reviewer",
+  post_assembler: "Channel post assembler"
 });
 const friendlyRoleLabel = (id, capability) => friendlyCapabilityLabels[capability] || friendlyRoleLabels[id] || humanizeIdentifier(id);
 const friendlyJobStatus = (status) => ({
@@ -170,8 +172,8 @@ const teamStateForJob = (status) => ({
   ready_for_agent: "ready",
   in_progress: "working",
   awaiting_owner_decision: "review_pending",
-  accepted_internal: "complete",
-  revision_requested: "working",
+  accepted_internal: "evidence_missing",
+  revision_requested: "ready",
   blocked: "blocked",
   cancelled: "blocked",
   failed: "blocked"
@@ -246,6 +248,13 @@ const assertManifestShape = (manifest, jobId, tenantId) => {
   }
   if (manifest.handoff?.credentialPolicy !== "framework_accepts_no_provider_credentials" || manifest.handoff?.requiresUserInitiation !== true) {
     throw new Error("Canvas work order handoff policy is invalid.");
+  }
+  if (manifest.mediaDeliveryRequirement !== undefined && !["required", "not_required"].includes(manifest.mediaDeliveryRequirement)) {
+    throw new Error("Canvas work order media delivery requirement is invalid.");
+  }
+  if (manifest.w2ProductionOrder !== undefined && (!Array.isArray(manifest.w2ProductionOrder)
+    || JSON.stringify([...new Set(manifest.w2ProductionOrder)].sort()) !== JSON.stringify(["copy", "media"]))) {
+    throw new Error("Canvas work order production priority must contain copy and media exactly once.");
   }
 };
 
@@ -688,11 +697,42 @@ export class CanvasWorkspaceStore {
       || jobs[0]
       || null;
     const campaign = tenant.campaign || {};
-    let qaVerdict = null;
+    let verifiedContentRecord = null;
+    const reviewableStatuses = new Set(["awaiting_owner_decision", "accepted_internal"]);
     if (activeJob) {
-      qaVerdict = readOptionalJson(path.join(this.jobDirectory(activeJob.jobId), "qa-verdict.json"), this.workspace);
+      if (reviewableStatuses.has(activeJob.state.status)) {
+        try {
+          // Reuse the same receipt, QA, lint, attempt, and artifact-hash checks as
+          // the manager content record before using work-log data for role status.
+          verifiedContentRecord = this.readContentRecord(activeJob.jobId);
+        } catch {
+          verifiedContentRecord = null;
+        }
+      }
     }
-    const qaPassed = qaVerdict?.verdict === "pass" && qaVerdict?.deterministicLintStatus === "passed";
+    const verifiedReview = verifiedContentRecord?.review;
+    const verifiedQa = verifiedReview?.qa;
+    const qaPassed = verifiedQa?.verdict === "pass"
+      && verifiedQa?.deterministicLintStatus === "passed"
+      && verifiedReview?.verification?.independentQa === "verified"
+      && verifiedReview?.verification?.artifactIntegrity === "verified";
+    let workLog = null;
+    if (verifiedReview?.receipt?.attemptId) {
+      const workLogArtifact = (verifiedReview.artifacts || []).find(({ reference }) => path.basename(reference || "") === "agent-work-log.json");
+      const workLogContent = workLogArtifact?.preview?.content;
+      if (typeof workLogContent === "string") {
+        try {
+          const candidate = JSON.parse(workLogContent);
+          if (candidate.artifactKind === "agent_work_log"
+            && candidate.jobId === activeJob.jobId
+            && candidate.tenantId === this.tenantId
+            && candidate.workflowId === activeJob.manifest.workflowId
+            && candidate.attemptId === verifiedReview.receipt.attemptId) workLog = candidate;
+        } catch {
+          workLog = null;
+        }
+      }
+    }
     const gate = (id, label, detail, passed, blocked = false) => ({ id, label, detail, state: passed ? "passed" : blocked ? "blocked" : "pending" });
     const gates = [
       gate("readiness", "Tenant readiness and ProductTruth passed", "Required tenant evidence and operating boundaries validate locally.", readiness.readyForInternalDrafts, !readiness.readyForInternalDrafts),
@@ -722,31 +762,57 @@ export class CanvasWorkspaceStore {
 
     let roles = [];
     if (activeJob) {
+      const leadReceiptComplete = ["awaiting_owner_decision", "accepted_internal"].includes(activeJob.state.status)
+        && activeJob.receipt?.agentRole === activeJob.manifest.assignedAgentRole
+        && activeJob.receipt?.outcome === "completed_for_review"
+        && Array.isArray(activeJob.receipt?.artifactReferences)
+        && activeJob.receipt.artifactReferences.length > 0;
       const lead = {
         id: activeJob.manifest.assignedAgentRole,
         label: friendlyRoleLabel(activeJob.manifest.assignedAgentRole),
-        status: friendlyJobStatus(activeJob.state.status),
-        state: teamStateForJob(activeJob.state.status),
-        detail: `Leads internal production for ${activeJob.jobId}.`
+        status: leadReceiptComplete ? "Complete" : friendlyJobStatus(activeJob.state.status),
+        state: leadReceiptComplete ? "complete" : teamStateForJob(activeJob.state.status),
+        evidenceRole: "lead",
+        detail: leadReceiptComplete
+          ? `A validated lead receipt links the content artifacts for ${activeJob.jobId}.`
+          : `Leads internal production for ${activeJob.jobId}.`
       };
-      const subagents = (activeJob.manifest.subagentTemplateIds || []).map((subagentId) => ({
-        id: subagentId,
-        label: friendlyRoleLabel(subagentId),
-        status: friendlyJobStatus(activeJob.state.status),
-        state: teamStateForJob(activeJob.state.status),
-        detail: `Supports the bounded work order ${activeJob.jobId}.`
-      }));
+      const subagents = (activeJob.manifest.subagentTemplateIds || []).map((subagentId) => {
+        const roleSteps = (workLog?.steps || []).filter((step) => step.workerId === subagentId);
+        const everyStepComplete = roleSteps.length > 0 && roleSteps.every((step) => step.status === "complete");
+        const blockedStep = roleSteps.some((step) => step.status === "blocked");
+        const evidenceMissing = ["awaiting_owner_decision", "accepted_internal"].includes(activeJob.state.status) && roleSteps.length === 0;
+        const state = everyStepComplete
+          ? "complete"
+          : blockedStep
+            ? "blocked"
+            : evidenceMissing
+              ? "evidence_missing"
+              : teamStateForJob(activeJob.state.status);
+        return {
+          id: subagentId,
+          label: friendlyRoleLabel(subagentId),
+          status: state === "complete" ? "Complete" : state === "evidence_missing" ? "Evidence not recorded" : activeJob.state.status === "revision_requested" ? "Ready for a fresh attempt" : friendlyJobStatus(activeJob.state.status),
+          state,
+          evidenceRole: "subagent",
+          detail: state === "complete"
+            ? `Verified work-log entries link this role to ${activeJob.jobId}'s current reviewed artifacts.`
+            : state === "evidence_missing"
+              ? `No verified work-log entry is bound to this role in ${activeJob.jobId}'s current attempt.`
+              : `Supports the bounded work order ${activeJob.jobId}.`
+        };
+      });
       const qualityRole = tenant.roleMappings.quality_assurance
         ? {
             id: tenant.roleMappings.quality_assurance,
             label: friendlyRoleLabel(tenant.roleMappings.quality_assurance, "quality_assurance"),
             status: qaPassed ? "Complete" : "Review pending",
             state: qaPassed ? "complete" : "review_pending",
+            evidenceRole: "quality_assurance",
             detail: "Reviews the draft independently before the owner decision."
           }
         : null;
-      const subagentSlots = qualityRole ? 2 : 3;
-      roles = [lead, ...subagents.slice(0, subagentSlots), ...(qualityRole ? [qualityRole] : [])];
+      roles = [lead, ...subagents, ...(qualityRole ? [qualityRole] : [])];
     } else {
       for (const capability of preferredCoreCapabilities) {
         const role = tenant.roleMappings[capability];
@@ -767,13 +833,13 @@ export class CanvasWorkspaceStore {
         seenRoles.add(id);
         return true;
       })
-      .slice(0, 4)
-      .map(({ id, label, status, state, detail }) => ({
+      .map(({ id, label, status, state, detail, evidenceRole }) => ({
         id,
         initials: initialsFor(label || id),
         role: label || friendlyRoleLabel(id),
         time: status || "Ready",
         state: state || "ready",
+        evidenceRole: evidenceRole || null,
         detail
       }));
 
@@ -899,7 +965,7 @@ export class CanvasWorkspaceStore {
     return resolveInsideWorkspace(this.workspace, "operations", "jobs", jobId);
   }
 
-  createW2Job({ jobId, title, campaignSummary, managerTaskDescription, targetChannels, subagentTemplateIds }) {
+  createW2Job({ jobId, title, campaignSummary, managerTaskDescription, targetChannels, subagentTemplateIds, mediaDeliveryRequirement, w2ProductionOrder }) {
     assertJobId(jobId);
     const normalizedTitle = assertString(title, "title", { required: true, maxLength: 120 });
     const normalizedSummary = assertString(campaignSummary, "campaignSummary", { maxLength: 1000 });
@@ -927,7 +993,9 @@ export class CanvasWorkspaceStore {
         jobId,
         adapterMode: "coding_agent_handoff",
         targetChannels,
-        subagentTemplateIds
+        subagentTemplateIds,
+        mediaDeliveryRequirement,
+        w2ProductionOrder
       });
       const manifestText = fs.readFileSync(manifestPath, "utf8");
       const createdAt = nowIso();
@@ -1036,10 +1104,18 @@ export class CanvasWorkspaceStore {
     const channelInstruction = manifest.targetChannels?.length
       ? `The immutable targetChannels are ${manifest.targetChannels.join(", ")}. Produce one channel-specific content/media package per id and tag each copy/media record with its channelId.`
       : "This work order has no targetChannels because it predates channel assignment. Do not invent a platform or produce a generic multi-channel asset; stop and ask the owner to create a new task with explicit channels.";
+    const finalMediaInstruction = manifest.mediaDeliveryRequirement === "required"
+      ? `Final image/video media is required. W2.2 must give every distinct post a stable contentItemId; locale variants of the same post reuse that id. W2.4 must return actual supported image/video files in operations/jobs/${jobId}/attempts/${attemptId}/artifacts/media/<channelId>/<contentItemId>/, with source/rights/provenance recorded and each media file bound to its contentItemId. A visual brief, prompt, storyboard or technical note is not a media deliverable and cannot pass lint.`
+      : manifest.mediaDeliveryRequirement === "not_required"
+        ? "The owner explicitly selected text-only output. Do not invent media; record that the final post is text-only and keep visual guidance as metadata only."
+        : "This older work order has no explicit media delivery policy. Do not treat a visual brief or prompt as an attached media file; report any media limitation to the owner.";
+    const branchOrder = manifest.w2ProductionOrder?.length
+      ? `The owner selected the production priority ${manifest.w2ProductionOrder.map((branch, index) => `${index + 1}. ${branch}`).join(" → ")}. Copy and media are independent branches; finish both before W2.5 assembles the final post preview. W2.6 lint, W2.7 independent QA and W2.8 owner decision are locked in this order.`
+      : "Complete both copy and media production branches before W2.5 assembles the final post preview; then run lint, independent QA and owner review in order.";
     const handoffPrompt = [
       `Execute the tenant-scoped W2 work order ${jobId} through its local filesystem lifecycle.`,
       `First read AGENTS.md, docs/AGENT_TASK_ROUTER.md, docs/PLAN_QC_PROTOCOL.md, and the immutable work-order manifest at ${manifestPath}.`,
-      `Run the claim command before creating artifacts. Create only internal artifacts inside ${this.workspace}; do not publish, send, schedule, upload audiences, create campaigns, or spend. ${channelInstruction}`,
+      `Run the claim command before creating artifacts. Create only internal artifacts inside ${this.workspace}; do not publish, send, schedule, upload audiences, create campaigns, or spend. ${channelInstruction} ${finalMediaInstruction} ${branchOrder}`,
       "Use the manifest's assigned lead and sub-agent roles. Delegate quality review to the tenant-mapped quality_assurance role, which must differ from the assigned lead.",
       `Create a manager-readable work log at ${workLogPath} that validates against packages/growth-contracts/schemas/agent-work-log.schema.json. Include one concise outcome row per completed/blocked workflow step and per target channel, with role/template id, timestamps, input/output artifact references and issue codes. Add the work log to the same artifactReferences reviewed by independent QA. Record outcomes only; never include hidden chain-of-thought.`,
       `Have that independent reviewer write ${qaInputPath}, then run the independent QA command. The lead must write ${receiptInputPath} with qualityGateStatus set to not_run, then run the completion command.`,
@@ -1383,6 +1459,8 @@ export class CanvasWorkspaceStore {
       campaignSummary: job.state.campaignSummary,
       managerTaskDescription: job.state.managerTaskDescription,
       targetChannels: job.manifest.targetChannels ?? [],
+      mediaDeliveryRequirement: job.manifest.mediaDeliveryRequirement ?? "not_specified",
+      w2ProductionOrder: job.manifest.w2ProductionOrder ?? ["copy", "media"],
       createdAt: job.state.createdAt,
       updatedAt: job.state.updatedAt,
       ownerDecision: job.state.ownerDecision || null,

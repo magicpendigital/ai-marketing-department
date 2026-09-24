@@ -79,7 +79,7 @@ flowchart LR
 ```
 
 - W1 creates a research scope, audience/job hypothesis, experiment brief, and measurement plan from approved inputs.
-- W2 creates internal concepts, copy, visual briefs, deterministic lint results, and independent QA verdicts.
+- W2 creates internal concepts and copy, requires completed channel-ready image/video files when the task's media policy says so, assembles the full preview before deterministic lint and independent QA, and stops at owner review. A prompt or visual brief is not a media deliverable.
 - W6 produces only aggregate, de-identified learning notes and product-ticket drafts for product-owner triage.
 
 Do not contact people, upload an audience, schedule a post, send a message, or buy media in this cycle.
